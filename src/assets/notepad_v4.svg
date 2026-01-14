@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="820" height="1500" viewBox="0 0 820 1500" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="paperShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000000" flood-opacity="0.10"/>
+    </filter>
+
+    <linearGradient id="paperFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFF7EE"/>
+      <stop offset="100%" stop-color="#F6EDE3"/>
+    </linearGradient>
+
+    <linearGradient id="paperInner" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.05"/>
+    </linearGradient>
+
+    <linearGradient id="clipFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F1B08B"/>
+      <stop offset="100%" stop-color="#E79B74"/>
+    </linearGradient>
+
+    <filter id="clipShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#000000" flood-opacity="0.12"/>
+    </filter>
+
+    <style>
+      .outline { stroke:#6B4B3E; stroke-width:10; stroke-linecap:round; stroke-linejoin:round; }
+      .outlineThin { stroke:#6B4B3E; stroke-width:8; stroke-linecap:round; stroke-linejoin:round; }
+      .rule { stroke:#E3D2C3; stroke-width:6; stroke-linecap:round; opacity:0.75; }
+      .ruleSoft { stroke:#E9DBCF; stroke-width:5; stroke-linecap:round; opacity:0.55; }
+      .dash { stroke:#C9B2A3; stroke-width:6; stroke-linecap:round; stroke-linejoin:round; }
+    </style>
+  </defs>
+
+  <!-- Paper -->
+  <g filter="url(#paperShadow)">
+    <path d="M115 120
+             Q410 40 705 120
+             Q740 125 740 160
+             V1330
+             Q740 1395 675 1410
+             Q410 1465 145 1410
+             Q80 1395 80 1330
+             V160
+             Q80 125 115 120 Z"
+          fill="url(#paperFill)" class="outline"/>
+
+    <path d="M115 120
+             Q410 40 705 120
+             Q740 125 740 160
+             V1330
+             Q740 1395 675 1410
+             Q410 1465 145 1410
+             Q80 1395 80 1330
+             V160
+             Q80 125 115 120 Z"
+          fill="url(#paperInner)" opacity="0.40"/>
+  </g>
+
+  <!-- Clip -->
+  <g filter="url(#clipShadow)">
+    <path d="M325 55
+             Q410 10 495 55
+             Q520 70 520 95
+             V155
+             Q520 185 490 185
+             H330
+             Q300 185 300 155
+             V95
+             Q300 70 325 55 Z"
+          fill="url(#clipFill)" class="outline"/>
+    <circle cx="410" cy="112" r="18" fill="#F7E7DC" class="outlineThin"/>
+    <circle cx="410" cy="112" r="6" fill="#6B4B3E" opacity="0.45"/>
+  </g>
+
+  <!-- Header panel -->
+  <g transform="translate(140 155)">
+    <path d="M40 0
+             H500
+             Q540 0 540 40
+             V150
+             Q540 185 505 185
+             H35
+             Q0 185 0 150
+             V40
+             Q0 0 40 0 Z"
+          fill="#F3E3D7" class="outline"/>
+    <path d="M0 150
+             Q35 178 70 150
+             Q105 178 140 150
+             Q175 178 210 150
+             Q245 178 280 150
+             Q315 178 350 150
+             Q385 178 420 150
+             Q455 178 490 150
+             Q515 170 540 150"
+          fill="none" class="outlineThin"/>
+  </g>
+
+  <!-- Checkbox + line rows -->
+  <g transform="translate(130 380)">
+    <!-- Row template repeated -->
+    <g>
+      <rect x="0" y="0" width="34" height="34" rx="8" fill="none" class="outlineThin" opacity="0.35"/>
+      <line class="rule" x1="54" y1="44" x2="574" y2="44"/>
+    </g>
+
+    <g transform="translate(0 90)">
+      <rect x="0" y="0" width="34" height="34" rx="8" fill="none" class="outlineThin" opacity="0.35"/>
+      <line class="ruleSoft" x1="54" y1="44" x2="574" y2="44"/>
+    </g>
+
+    <g transform="translate(0 180)">
+      <rect x="0" y="0" width="34" height="34" rx="8" fill="none" class="outlineThin" opacity="0.35"/>
+      <line class="rule" x1="54" y1="44" x2="574" y2="44"/>
+    </g>
+
+    <g transform="translate(0 270)">
+      <rect x="0" y="0" width="34" height="34" rx="8" fill="none" class="outlineThin" opacity="0.35"/>
+      <line class="ruleSoft" x1="54" y1="44" x2="574" y2="44"/>
+    </g>
+
+    <g transform="translate(0 360)">
+      <rect x="0" y="0" width="34" height="34" rx="8" fill="none" class="outlineThin" opacity="0.35"/>
+      <line class="rule" x1="54" y1="44" x2="574" y2="44"/>
+    </g>
+
+    <g transform="translate(0 450)">
+      <rect x="0" y="0" width="34" height="34" rx="8" fill="none" class="outlineThin" opacity="0.35"/>
+      <line class="ruleSoft" x1="54" y1="44" x2="574" y2="44"/>
+    </g>
+
+    <g transform="translate(0 540)">
+      <rect x="0" y="0" width="34" height="34" rx="8" fill="none" class="outlineThin" opacity="0.35"/>
+      <line class="rule" x1="54" y1="44" x2="574" y2="44"/>
+    </g>
+
+    <g transform="translate(0 630)">
+      <rect x="0" y="0" width="34" height="34" rx="8" fill="none" class="outlineThin" opacity="0.35"/>
+      <line class="ruleSoft" x1="54" y1="44" x2="574" y2="44"/>
+    </g>
+  </g>
+
+  <!-- Notes area -->
+  <g transform="translate(150 1120)">
+    <rect x="0" y="0" width="520" height="260" rx="26"
+          fill="none" class="dash" stroke-dasharray="14 18" opacity="0.75"/>
+    <path d="M40 70 Q120 40 220 70 T420 70"
+          fill="none" stroke="#DCC8B9" stroke-width="16"
+          opacity="0.12" stroke-linecap="round"/>
+    <path d="M60 150 Q170 120 280 150 T460 150"
+          fill="none" stroke="#DCC8B9" stroke-width="14"
+          opacity="0.10" stroke-linecap="round"/>
+  </g>
+</svg>

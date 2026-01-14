@@ -1,0 +1,91 @@
+<ns0:svg xmlns:ns0="http://www.w3.org/2000/svg" width="1170" height="2532" viewBox="0 0 1170 2532">
+  <ns0:defs>
+    
+    <ns0:linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <ns0:stop offset="0%" stop-color="#DDF3FF" />
+      <ns0:stop offset="100%" stop-color="#FFF6EA" />
+    </ns0:linearGradient>
+
+    
+    <ns0:linearGradient id="fridgeFill" x1="0" y1="0" x2="0" y2="1">
+      <ns0:stop offset="0%" stop-color="#CFEAF2" />
+      <ns0:stop offset="100%" stop-color="#B9DDE9" />
+    </ns0:linearGradient>
+
+    
+    <ns0:linearGradient id="legFill" x1="0" y1="0" x2="0" y2="1">
+      <ns0:stop offset="0%" stop-color="#C9CED2" />
+      <ns0:stop offset="100%" stop-color="#B6BBC0" />
+    </ns0:linearGradient>
+
+    
+    <ns0:linearGradient id="legShade" x1="0" y1="0" x2="1" y2="0">
+      <ns0:stop offset="0%" stop-color="#000000" stop-opacity="0.00" />
+      <ns0:stop offset="100%" stop-color="#000000" stop-opacity="0.10" />
+    </ns0:linearGradient>
+
+    
+    <ns0:linearGradient id="legHighlight" x1="0" y1="0" x2="1" y2="0">
+      <ns0:stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.28" />
+      <ns0:stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.00" />
+    </ns0:linearGradient>
+
+    <ns0:filter id="softShadow" x="-25%" y="-25%" width="150%" height="150%">
+      <ns0:feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#000000" flood-opacity="0.12" />
+    </ns0:filter>
+
+    <ns0:style>
+      .outline { stroke:#6B4B3E; stroke-width:12; stroke-linecap:round; stroke-linejoin:round; }
+      .outlineThin { stroke:#6B4B3E; stroke-width:10; stroke-linecap:round; stroke-linejoin:round; }
+    </ns0:style>
+  </ns0:defs>
+
+  
+  <ns0:rect width="1170" height="2532" fill="url(#sky)" />
+
+  
+  
+  <ns0:g opacity="0.95">
+    
+    <ns0:g>
+      <ns0:rect x="318" y="2138" width="120" height="105" rx="36" fill="url(#legFill)" class="outline" />
+      
+      <ns0:rect x="332" y="2152" width="34" height="77" rx="17" fill="url(#legHighlight)" />
+      
+      <ns0:rect x="382" y="2148" width="44" height="85" rx="22" fill="url(#legShade)" />
+    </ns0:g>
+
+    
+    <ns0:g>
+      <ns0:rect x="732" y="2138" width="120" height="105" rx="36" fill="url(#legFill)" class="outline" />
+      <ns0:rect x="746" y="2152" width="34" height="77" rx="17" fill="url(#legHighlight)" />
+      <ns0:rect x="796" y="2148" width="44" height="85" rx="22" fill="url(#legShade)" />
+    </ns0:g>
+  </ns0:g>
+
+  
+  <ns0:g filter="url(#softShadow)">
+    <ns0:rect x="140" y="300" width="890" height="1860" rx="160" fill="url(#fridgeFill)" class="outline" />
+
+    <ns0:rect x="190" y="350" width="790" height="1760" rx="135" fill="#C3E4EE" opacity="0.95" class="outlineThin" />
+
+    
+    <ns0:line x1="210" y1="1899.0" x2="960" y2="1899.0" stroke="#9FC7D5" stroke-width="12" stroke-linecap="round" opacity="0.65" />
+
+    
+    <ns0:g id="handle" transform=" scale(0.75)">
+      
+      <ns0:rect x="162" y="950" width="240" height="190" rx="78" fill="#D6EEF7" class="outline" />
+      
+      <ns0:rect x="260" y="1016" width="260" height="78" rx="39" fill="#C6E6F2" class="outline" />
+      
+      <ns0:path d="M206 988                C190 988, 178 976, 178 960" fill="none" stroke="#FFFFFF" stroke-width="16" stroke-linecap="round" opacity="0.45" />
+      <ns0:path d="M300 1036                L444 1036" fill="none" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round" opacity="0.35" />
+    </ns0:g>
+
+    <ns0:path d="M265 460              C265 410, 306 370, 356 370              L420 370" fill="none" stroke="#FFFFFF" stroke-width="20" stroke-linecap="round" opacity="0.55" />
+  </ns0:g>
+
+  
+  <ns0:rect x="0" y="2300" width="1170" height="232" fill="transparent" />
+</ns0:svg>
