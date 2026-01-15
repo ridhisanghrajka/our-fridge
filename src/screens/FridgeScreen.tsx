@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePairing } from '../hooks/usePairing';
@@ -6,17 +6,31 @@ import Svg, { Path, G, Defs, Use, ClipPath, Rect } from 'react-native-svg';
 import { useGroceryItems } from '../hooks/useGroceryItems';
 import { useSharedNote } from '../hooks/useSharedNote';
 import { FridgeSVG } from '../components/FridgeSVG';
+import { FridgeHandleSVG } from '../components/FridgeHandleSVG';
+import { NoteCanvas } from '../components/NoteCanvas';
+import { NoteModal } from './NoteModal';
+import { AddItemModal } from './AddItemModal';
 import { NotepadSVG } from '../components/NotepadSVG';
 import { GroceryListRow } from '../components/GroceryListRow';
-import { AddItemModal } from './AddItemModal';
-import { WriteNoteModal } from './WriteNoteModal';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 export const FridgeScreen: React.FC = () => {
-    const { pairId, userName } = usePairing();
-    const { items, addItem, toggleItem } = useGroceryItems(pairId, userName);
+    const { pairId, userName, pair } = usePairing();
+    const { items, addItem, toggleItem, deleteItem } = useGroceryItems(pairId, userName);
     const { note, updateNote } = useSharedNote(pairId, userName);
+
+    // Calculate notepad title
+    let notepadTitle = "Our Fridge";
+    if (pair) {
+        if (pair.userAName && pair.userBName) {
+            notepadTitle = `${pair.userAName} & ${pair.userBName}'s Fridge`;
+        } else if (pair.userAName || pair.userBName) {
+            notepadTitle = `${pair.userAName || pair.userBName}'s Fridge`;
+        }
+    } else if (userName) {
+        notepadTitle = `${userName}'s Fridge`;
+    }
 
     const [addItemVisible, setAddItemVisible] = useState(false);
     const [writeNoteVisible, setWriteNoteVisible] = useState(false);
@@ -25,12 +39,24 @@ export const FridgeScreen: React.FC = () => {
         await addItem(name, emoji, quantity);
     };
 
-    const handleUpdateNote = async (text: string) => {
-        await updateNote(text);
+    const handleUpdateNote = async (content: string) => {
+        await updateNote(content);
     };
 
+    // Parse canvas elements safely
+    const memoizedElements = useMemo(() => {
+        if (!note?.content) return [];
+        try {
+            const parsed = JSON.parse(note.content);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            console.error("Error parsing note canvas content:", e);
+            return [];
+        }
+    }, [note?.content]);
+
     // Calculate scale and position to match FridgeSVG logic
-    const originalWidth = 1250;
+    const originalWidth = 1280;
     const originalHeight = 2532;
     const scale = Math.min(screenWidth / originalWidth, screenHeight / originalHeight);
 
@@ -41,14 +67,14 @@ export const FridgeScreen: React.FC = () => {
     const fridgeTop = (screenHeight - scaledHeight) / 2;
 
     // Fridge Body Geometry (from FridgeSVG)
-    // Body is at x=140, width=890. Center of body is 140 + 445 = 585.
-    const bodyCenterX = fridgeLeft + (585 * scale);
-    const bodyWidth = 890 * scale;
+    // Body is at x=50, width=1100. Center of body is 50 + 550 = 600.
+    const bodyCenterX = fridgeLeft + (600 * scale);
+    const bodyWidth = 1100 * scale;
 
     // Notepad positions
     // We want width to be 85% of the fridge body
-    const notepadWidth = bodyWidth * 0.85;
-    const notepadHeight = notepadWidth * (1600 / 820); // Maintain aspect ratio
+    const notepadWidth = bodyWidth * 0.92; // Slightly wider to fill body better
+    const notepadHeight = notepadWidth * (1600 / 1000); // New aspect ratio
 
     // Center notepad on the fridge body
     const notepadLeft = bodyCenterX - (notepadWidth / 2);
@@ -57,24 +83,31 @@ export const FridgeScreen: React.FC = () => {
     const notepadTop = fridgeTop + (300 * scale);
 
     // List area layout (relative to notepad)
-    // 380/1600 = 0.2375
-    const listTop = notepadTop + notepadHeight * 0.2375;
-    // 450/1600 = 0.281 -> increased to 700/1600 = 0.4375 to fill gap and show 5+ items
-    const listHeight = notepadHeight * 0.4375;
-    const listLeft = notepadLeft + notepadWidth * 0.16;
-    const listWidth = notepadWidth * 0.7;
+    // 360/1600 = 0.225
+    const listTop = notepadTop + notepadHeight * 0.225;
+    // 640/1600 = 0.4
+    const listHeight = notepadHeight * 0.4;
+    const listLeft = notepadLeft + notepadWidth * 0.10; // Centered on wider paper
+    const listWidth = notepadWidth * 0.80; // 800/1000
 
     // Note area layout
-    // 1100/1600 = 0.6875
-    const noteTop = notepadTop + notepadHeight * 0.6875;
-    // 260/1600 = 0.1625
-    const noteHeight = notepadHeight * 0.1625;
-    const noteLeft = notepadLeft + notepadWidth * 0.18;
-    const noteWidth = notepadWidth * 0.64;
+    // 1030/1600 = 0.64375
+    const noteTop = notepadTop + notepadHeight * 0.64375;
+    // 480/1600 = 0.3
+    const noteHeight = notepadHeight * 0.3;
+    const noteLeft = notepadLeft + notepadWidth * 0.10; // Centered on wider paper
+    const noteWidth = notepadWidth * 0.80; // 800/1000
 
     // Buttons - Position relative to Divider (y=1899)
     // Let's place them at y=1950 scale
     const buttonsTop = fridgeTop + (1950 * scale);
+
+    // Handle positions (centered vertically on body)
+    // Body is from y=300 to y=2160. Midpoint = 1230.
+    const handleWidth = 390 * scale;
+    const handleHeight = 150 * scale;
+    const handleTop = fridgeTop + (1230 * scale) - (handleHeight / 2);
+    const handleLeft = fridgeLeft + (31.5 * scale);
 
     // Responsive scaling factor for text/padding/etc (normalized to phone scale ~0.35)
     const rScale = scale / 0.35;
@@ -91,7 +124,12 @@ export const FridgeScreen: React.FC = () => {
 
             {/* Notepad overlay */}
             <View style={[styles.notepadContainer, { left: notepadLeft, top: notepadTop, width: notepadWidth, height: notepadHeight, overflow: 'visible' }]}>
-                <NotepadSVG width={notepadWidth} height={notepadHeight} />
+                <NotepadSVG width={notepadWidth} height={notepadHeight} title={notepadTitle} />
+            </View>
+
+            {/* Door Handle - Overlaps Notepad */}
+            <View style={{ position: 'absolute', left: handleLeft, top: handleTop, width: handleWidth, height: handleHeight }}>
+                <FridgeHandleSVG width={handleWidth} height={handleHeight} />
             </View>
 
             {/* Grocery list overlay */}
@@ -103,7 +141,9 @@ export const FridgeScreen: React.FC = () => {
                         <GroceryListRow
                             item={item}
                             onToggle={() => toggleItem(item.id, item.isDone)}
+                            onDelete={() => deleteItem(item.id)}
                             scale={rScale}
+                            rowHeight={listHeight / 5}
                         />
                     )}
                     showsVerticalScrollIndicator={false}
@@ -117,9 +157,21 @@ export const FridgeScreen: React.FC = () => {
                 onPress={() => setWriteNoteVisible(true)}
                 activeOpacity={0.7}
             >
-                <Text style={[styles.noteText, { fontSize: 14 * rScale, lineHeight: 20 * rScale }]} numberOfLines={4}>
-                    {note?.text || 'Tap to write a note...'}
-                </Text>
+                <View style={[StyleSheet.absoluteFill, { padding: 10 }]} pointerEvents="none">
+                    <NoteCanvas
+                        width={noteWidth - 20}
+                        height={noteHeight - 20}
+                        elements={memoizedElements}
+                        currentTool="pen" // Doesn't matter for readOnly
+                        onElementsChange={() => { }}
+                        readOnly={true}
+                    />
+                </View>
+                {memoizedElements.length === 0 && (
+                    <Text style={[styles.noteText, { fontSize: 14 * rScale, lineHeight: 20 * rScale }]}>
+                        Tap to leave a note...
+                    </Text>
+                )}
             </TouchableOpacity>
 
             {/* Action buttons - centered on body */}
@@ -158,11 +210,12 @@ export const FridgeScreen: React.FC = () => {
                 onAdd={handleAddItem}
             />
 
-            <WriteNoteModal
+            <NoteModal
                 visible={writeNoteVisible}
-                currentNote={note?.text || ''}
+                initialContent={note?.content || ''}
                 onClose={() => setWriteNoteVisible(false)}
                 onSave={handleUpdateNote}
+                rScale={rScale}
             />
         </LinearGradient >
     );

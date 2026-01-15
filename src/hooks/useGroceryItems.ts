@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, Timestamp, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase.config';
 import { GroceryItem } from '../types/GroceryItem';
 
@@ -77,10 +77,16 @@ export const useGroceryItems = (pairId: string | null, userName: string | null) 
         });
     };
 
+    const deleteItem = async (itemId: string) => {
+        const itemRef = doc(db, 'groceryItems', itemId);
+        await deleteDoc(itemRef);
+    };
+
     return {
         items,
         loading,
         addItem,
         toggleItem,
+        deleteItem,
     };
 };

@@ -1,25 +1,43 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { GroceryItem } from '../types/GroceryItem';
 
 interface GroceryListRowProps {
     item: GroceryItem;
     onToggle: () => void;
+    onDelete?: () => void;
     scale?: number;
+    rowHeight?: number;
 }
 
-export const GroceryListRow: React.FC<GroceryListRowProps> = ({ item, onToggle, scale = 1 }) => {
+export const GroceryListRow: React.FC<GroceryListRowProps> = ({ item, onToggle, onDelete, scale = 1, rowHeight }) => {
     return (
-        <TouchableOpacity style={[styles.container, { paddingVertical: 12 * scale }]} onPress={onToggle} activeOpacity={0.7}>
+        <TouchableOpacity
+            style={[
+                styles.container,
+                { paddingVertical: 8 * scale }, // Reduced from 12 to help fit
+                rowHeight ? { height: rowHeight } : {}
+            ]}
+            onPress={onToggle}
+            activeOpacity={0.7}
+        >
             {/* Checkbox */}
             <View style={[styles.checkbox, {
-                width: 32 * scale,
-                height: 32 * scale,
-                borderRadius: 10 * scale,
-                borderWidth: 3 * scale,
-                marginRight: 16 * scale
+                width: 28 * scale, // Reduced from 32 to help fit better
+                height: 28 * scale,
+                borderRadius: 8 * scale,
+                borderWidth: item.isDone ? 0 : 2.5 * scale,
+                marginRight: 12 * scale // Reduced from 16
             }, item.isDone && styles.checkboxDone]}>
-                {item.isDone && <View style={[styles.checkmark, { width: 14 * scale, height: 14 * scale, borderRadius: 4 * scale }]} />}
+                {item.isDone && (
+                    <Svg width={14 * scale} height={14 * scale} viewBox="0 0 24 24">
+                        <Path
+                            d="M20.285 2L9 13.567 3.714 8.556 0 12.272 9 21 24 5.715z"
+                            fill="#FFF7EE"
+                        />
+                    </Svg>
+                )}
             </View>
 
             {/* Content with Underline */}
@@ -36,6 +54,22 @@ export const GroceryListRow: React.FC<GroceryListRowProps> = ({ item, onToggle, 
                     </Text>
                 )}
             </View>
+
+            {/* Delete Cross */}
+            {onDelete && (
+                <TouchableOpacity
+                    onPress={(e) => {
+                        e.stopPropagation(); // Don't toggle when deleting
+                        onDelete();
+                    }}
+                    style={[styles.deleteButton, { padding: 4 * scale, marginLeft: 4 * scale }]}
+                    activeOpacity={0.6}
+                >
+                    <View style={[styles.crossContainer, { width: 22 * scale, height: 22 * scale, borderRadius: 11 * scale }]}>
+                        <Text style={[styles.crossText, { fontSize: 13 * scale }]}>✕</Text>
+                    </View>
+                </TouchableOpacity>
+            )}
         </TouchableOpacity>
     );
 };
@@ -60,8 +94,9 @@ const styles = StyleSheet.create({
     },
     checkboxDone: {
         backgroundColor: '#6B4B3E',
-        borderColor: '#6B4B3E',
-        opacity: 0.6,
+        borderColor: 'transparent',
+        borderWidth: 0,
+        opacity: 0.8,
     },
     checkmark: {
         width: 14,
@@ -100,5 +135,20 @@ const styles = StyleSheet.create({
     quantityDone: {
         opacity: 0.4,
         textDecorationLine: 'line-through',
+    },
+    deleteButton: {
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    crossContainer: {
+        backgroundColor: 'rgba(107, 75, 62, 0.08)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    crossText: {
+        color: '#6B4B3E',
+        fontWeight: '900',
+        textAlign: 'center',
+        marginTop: -1, // Visual center tweak
     },
 });

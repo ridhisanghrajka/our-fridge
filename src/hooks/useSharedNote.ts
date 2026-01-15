@@ -20,7 +20,7 @@ export const useSharedNote = (pairId: string | null, userName: string | null) =>
                 const data = snapshot.data();
                 setNote({
                     pairId: data.pairId,
-                    text: data.text,
+                    content: data.content || "[]",
                     updatedAt: data.updatedAt?.toDate() || new Date(),
                     updatedBy: data.updatedBy,
                 });
@@ -33,21 +33,21 @@ export const useSharedNote = (pairId: string | null, userName: string | null) =>
         return () => unsubscribe();
     }, [pairId]);
 
-    const updateNote = async (text: string) => {
+    const updateNoteData = async (content: string) => {
         if (!pairId || !userName) return;
 
         const noteRef = doc(db, 'sharedNotes', pairId);
         await setDoc(noteRef, {
             pairId,
-            text,
+            content,
             updatedAt: Timestamp.now(),
             updatedBy: userName,
-        });
+        }, { merge: true });
     };
 
     return {
         note,
         loading,
-        updateNote,
+        updateNote: updateNoteData,
     };
 };
