@@ -132,7 +132,7 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
                         {/* Footer */}
                         <View style={styles.footer}>
                             <TouchableOpacity onPress={onClose} style={[styles.button, styles.cancelButton]}>
-                                <Text style={styles.buttonText}>Cancel</Text>
+                                <Text style={[styles.buttonText, styles.cancelButtonText]}>Cancel</Text>
                             </TouchableOpacity>
                             <TouchableOpacity onPress={handleSave} style={[styles.button, styles.saveButton]}>
                                 <Text style={[styles.buttonText, styles.saveButtonText]}>Save</Text>
@@ -236,27 +236,39 @@ const styles = StyleSheet.create({
     },
     footer: {
         flexDirection: 'row',
-        justifyContent: 'flex-end',
-        gap: 12,
+        justifyContent: 'space-between',
+        alignItems: 'center',
         marginTop: 20,
     },
     button: {
         paddingVertical: 12,
-        paddingHorizontal: 24,
-        borderRadius: 12,
-        borderWidth: 3,
-        borderColor: '#6B4B3E',
+        paddingHorizontal: 28,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        minWidth: 100,
     },
     cancelButton: {
         backgroundColor: 'transparent',
+        paddingHorizontal: 8,
+        minWidth: 0,
     },
     saveButton: {
         backgroundColor: '#6B4B3E',
+        shadowColor: '#6B4B3E',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 4,
     },
     buttonText: {
         fontSize: 16,
         fontWeight: '700',
         color: '#6B4B3E',
+    },
+    cancelButtonText: {
+        color: '#8B7361',
+        fontWeight: '600',
     },
     saveButtonText: {
         color: '#FFF7EE',

@@ -1,7 +1,8 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, PanResponder, StyleSheet, TextInput, Platform, TouchableWithoutFeedback } from 'react-native';
+import { View, PanResponder, StyleSheet, TextInput, Platform, TouchableWithoutFeedback, Animated } from 'react-native';
 import Svg, { Path, Text as SvgText, G, Circle, Rect } from 'react-native-svg';
 import { CanvasElement } from '../types/SharedNote';
+import { CountryMagnet } from './CountryMagnet';
 
 const VIRTUAL_SIZE = 1000;
 
@@ -14,6 +15,7 @@ interface NoteCanvasProps {
     readOnly?: boolean;
     strokeColor?: string;
     strokeWidth?: number;
+    selectedMagnetType?: string;
 }
 
 export const NoteCanvas: React.FC<NoteCanvasProps> = ({
@@ -25,6 +27,7 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
     readOnly = false,
     strokeColor = '#6B4B3E',
     strokeWidth = 15,
+    selectedMagnetType = 'usa',
 }) => {
     // Canvas State
     const [currentPath, setCurrentPath] = useState<string>('');
@@ -33,6 +36,21 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
     const [typingText, setTypingText] = useState('');
     const [typingPos, setTypingPos] = useState({ x: 0, y: 0 });
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [animatingMagnetId, setAnimatingMagnetId] = useState<string | null>(null);
+    const [snapAnimScale, setSnapAnimScale] = useState<number>(1);
+    
+    // Animation for snap effect
+    const snapAnimValue = useRef(new Animated.Value(1)).current;
+    
+    // Listen to animation value changes and update state for re-rendering
+    useEffect(() => {
+        const listenerId = snapAnimValue.addListener(({ value }) => {
+            setSnapAnimScale(value);
+        });
+        return () => {
+            snapAnimValue.removeListener(listenerId);
+        };
+    }, []);
 
     // Refs for real-time tracking
     const currentPathRef = useRef<string>('');
@@ -42,6 +60,7 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
     const selectedIdRef = useRef<string | null>(null);
     const isTypingRef = useRef(false);
     const editingIdRef = useRef<string | null>(null);
+    const selectedMagnetTypeRef = useRef(selectedMagnetType);
 
     // Transformation refs
     const isDraggingRef = useRef(false);
@@ -59,11 +78,13 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
     }, [width, height]);
 
     useEffect(() => {
+        selectedMagnetTypeRef.current = selectedMagnetType;
+    }, [selectedMagnetType]);
+
+    useEffect(() => {
         toolRef.current = currentTool;
-        if (currentTool !== 'text' && currentTool !== 'pen') {
-            setSelectedId(null);
-            selectedIdRef.current = null;
-        }
+        setSelectedId(null);
+        selectedIdRef.current = null;
     }, [currentTool]);
 
     useEffect(() => {
@@ -105,13 +126,58 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
             return { w: w * (el.scale || 1), h: h * (el.scale || 1) };
         }
         if (el.type === 'magnet') {
-            const s = (el.size || 60) * (el.scale || 1);
-            return { w: s, h: s };
+            const scale = el.scale || 1;
+            // Map aspect ratios to coordinate system (VIRTUAL_SIZE = 1000)
+            // We scale these down so the selection box is tight around the visual sticker
+            switch (el.data) {
+                case 'uk': return { w: 320 * scale, h: 420 * scale };
+                case 'germany': return { w: 350 * scale, h: 440 * scale };
+                case 'canada': return { w: 900 * scale, h: 600 * scale };
+                case 'australia': return { w: 840 * scale, h: 600 * scale };
+                case 'usa': return { w: 1000 * scale, h: 600 * scale };
+                default:
+                    const s = (el.size || 60) * scale;
+                    return { w: s, h: s };
+            }
+        }
+        if (el.type === 'path') {
+            // Parse path for bounding box
+            const points = el.data.match(/[-+]?[0-9]*\.?[0-9]+/g);
+            if (points && points.length >= 2) {
+                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                for (let i = 0; i < points.length; i += 2) {
+                    const x = parseFloat(points[i]);
+                    const y = parseFloat(points[i + 1]);
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                }
+                return { 
+                    w: Math.max(20, maxX - minX), 
+                    h: Math.max(20, maxY - minY) 
+                };
+            }
         }
         return { w: 0, h: 0 };
     };
 
     const getBoxCenter = (el: CanvasElement) => {
+        if (el.type === 'path') {
+            const points = el.data.match(/[-+]?[0-9]*\.?[0-9]+/g);
+            if (points && points.length >= 2) {
+                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                for (let i = 0; i < points.length; i += 2) {
+                    const x = parseFloat(points[i]);
+                    const y = parseFloat(points[i + 1]);
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                }
+                return { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+            }
+        }
         let x = el.x || 0;
         let y = el.y || 0;
         if (el.type === 'text') {
@@ -193,7 +259,7 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
 
                 // 1. Tool Specific Start
                 if (toolRef.current === 'pen') {
-                    const path = `M ${v.x.toFixed(1)} ${v.y.toFixed(1)}`;
+                    const path = `M ${v.x.toFixed(1)} ${v.y.toFixed(1)} L ${v.x.toFixed(1)} ${v.y.toFixed(1)}`;
                     currentPathRef.current = path;
                     setCurrentPath(path);
                     return;
@@ -235,17 +301,20 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
                 }
 
                 // 3. New Selection or Tool Action
-                const hit = elementsRef.current.find(el => isHit(el, v));
+                const hit = elementsRef.current.find(el => isHit(el, v, toolRef.current === 'eraser' ? 30 : 0));
 
                 if (hit) {
                     if (toolRef.current === 'eraser') {
                         onElementsChange(elementsRef.current.filter(el => el.id !== hit.id));
                     } else {
-                        setSelectedId(hit.id);
-                        selectedIdRef.current = hit.id;
-                        // Allow immediate dragging
-                        isDraggingRef.current = true;
-                        initialElementRef.current = { ...hit };
+                        // Only select text and magnets for transformation
+                        if (hit.type !== 'path') {
+                            setSelectedId(hit.id);
+                            selectedIdRef.current = hit.id;
+                            // Allow immediate dragging
+                            isDraggingRef.current = true;
+                            initialElementRef.current = { ...hit };
+                        }
                     }
                 } else {
                     if (selectedIdRef.current) {
@@ -285,6 +354,11 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
                     const newPath = `${currentPathRef.current} L ${v.x.toFixed(1)} ${v.y.toFixed(1)}`;
                     currentPathRef.current = newPath;
                     setCurrentPath(newPath);
+                } else if (toolRef.current === 'eraser') {
+                    const hit = elementsRef.current.find(el => isHit(el, v, 30));
+                    if (hit) {
+                        onElementsChange(elementsRef.current.filter(el => el.id !== hit.id));
+                    }
                 } else if (isDraggingRef.current && initialElementRef.current) {
                     const dx = v.x - initialPosRef.current.x;
                     const dy = v.y - initialPosRef.current.y;
@@ -353,16 +427,29 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
                             setIsTyping(true);
                         }
                     } else if (toolRef.current === 'magnet' && !selectedIdRef.current) {
+                        const newId = `mag-${Date.now()}`;
                         const newElement: CanvasElement = {
-                            id: `mag-${Date.now()}`,
+                            id: newId,
                             type: 'magnet',
-                            data: 'default',
+                            data: selectedMagnetTypeRef.current,
                             x: tapPos.x,
                             y: tapPos.y,
                             size: 60,
                             scale: 1
                         };
                         onElementsChange([...elementsRef.current, newElement]);
+                        
+                        // Trigger snap animation
+                        setAnimatingMagnetId(newId);
+                        snapAnimValue.setValue(0);
+                        Animated.spring(snapAnimValue, {
+                            toValue: 1,
+                            friction: 6,
+                            tension: 40,
+                            useNativeDriver: true,
+                        }).start(() => {
+                            setAnimatingMagnetId(null);
+                        });
                     }
                 }
 
@@ -445,13 +532,43 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
                         } else if (el.type === 'magnet') {
                             const scale = el.scale || 1;
                             const size = (el.size || 60) * scale;
-                            return (
-                                <G key={el.id}>
-                                    <Circle cx={el.x} cy={el.y} r={size} fill="#F1B08B" stroke="#6B4B3E" strokeWidth={6 * scale} />
-                                    <SvgText x={el.x} y={el.y! + (size * 0.2)} textAnchor="middle" fontSize={size * 0.8}>🧲</SvgText>
-                                    {isSelected && renderTransformBox(el)}
-                                </G>
-                            );
+                            
+                            // Apply snap animation if this magnet is animating
+                            const isAnimating = el.id === animatingMagnetId;
+                            // Map animation value (0->1) to scale (0->1.2->1)
+                            const animValue = isAnimating ? snapAnimScale : 1;
+                            let currentAnimScale = 1;
+                            if (isAnimating) {
+                                if (animValue < 0.5) {
+                                    // 0 -> 0.5 maps to 0 -> 1.2
+                                    currentAnimScale = animValue * 2.4;
+                                } else {
+                                    // 0.5 -> 1 maps to 1.2 -> 1
+                                    currentAnimScale = 1.2 - ((animValue - 0.5) * 0.4);
+                                }
+                            }
+                            const finalScale = scale * currentAnimScale;
+                            
+                            // Render country-specific magnets or default circular magnet
+                            const countryIds = ['usa', 'uk', 'germany', 'canada', 'australia'];
+                            if (countryIds.includes(el.data)) {
+                                return (
+                                    <G key={el.id}>
+                                        <CountryMagnet country={el.data} x={el.x!} y={el.y!} scale={finalScale} />
+                                        {isSelected && renderTransformBox(el)}
+                                    </G>
+                                );
+                            } else {
+                                // Default circular magnet (backward compatibility)
+                                const animSize = size * currentAnimScale;
+                                return (
+                                    <G key={el.id}>
+                                        <Circle cx={el.x} cy={el.y} r={animSize} fill="#F1B08B" stroke="#6B4B3E" strokeWidth={6 * finalScale} />
+                                        <SvgText x={el.x} y={el.y! + (animSize * 0.2)} textAnchor="middle" fontSize={animSize * 0.8}>🧲</SvgText>
+                                        {isSelected && renderTransformBox(el)}
+                                    </G>
+                                );
+                            }
                         }
                         return null;
                     })}

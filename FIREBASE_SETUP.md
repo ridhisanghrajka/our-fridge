@@ -51,11 +51,27 @@ service cloud.firestore {
 }
 ```
 
-3. Click "Publish"
+## Step 5: Set Up Firebase Storage
 
-> **Note**: These rules allow anyone to read/write. For production, you should add proper authentication and security rules.
+1. In Firebase Console, go to "Storage" in the left menu
+2. Click "Get started"
+3. Click "Next" and "Done"
+4. Go to the "Rules" tab and replace with:
 
-## Step 5: Update App Configuration
+```javascript
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /grocery-items/{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}
+```
+
+5. Click "Publish"
+
+## Step 6: Update App Configuration
 
 1. Open `firebase.config.ts` in your project
 2. Replace the placeholder values with your Firebase config:

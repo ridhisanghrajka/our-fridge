@@ -1,33 +1,73 @@
 import React, { useState } from 'react';
-import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '../../firebase.config';
 
 interface AddItemModalProps {
     visible: boolean;
     onClose: () => void;
-    onAdd: (name: string, emoji?: string, quantity?: string) => void;
+    onAdd: (name: string, quantity?: string, imageUrl?: string, imagePath?: string) => void;
 }
 
 export const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onAdd }) => {
     const [name, setName] = useState('');
-    const [emoji, setEmoji] = useState('');
     const [quantity, setQuantity] = useState('');
+    const [image, setImage] = useState<string | null>(null);
+    const [uploading, setUploading] = useState(false);
 
-    const handleSave = () => {
+    const pickImage = async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.5,
+        });
+
+        if (!result.canceled) {
+            setImage(result.assets[0].uri);
+        }
+    };
+
+    const handleSave = async () => {
         if (!name.trim()) return;
 
-        onAdd(name.trim(), emoji.trim() || undefined, quantity.trim() || undefined);
+        setUploading(true);
+        try {
+            let imageUrl = undefined;
+            let imagePath = undefined;
 
-        // Reset fields
-        setName('');
-        setEmoji('');
-        setQuantity('');
-        onClose();
+            if (image) {
+                const response = await fetch(image);
+                const blob = await response.blob();
+                const filename = `grocery-items/${Date.now()}-${name.trim()}.jpg`;
+                const storageRef = ref(storage, filename);
+                
+                await uploadBytes(storageRef, blob);
+                imageUrl = await getDownloadURL(storageRef);
+                imagePath = filename;
+            }
+
+            onAdd(name.trim(), quantity.trim() || undefined, imageUrl, imagePath);
+
+            // Reset fields
+            setName('');
+            setQuantity('');
+            setImage(null);
+            onClose();
+        } catch (error) {
+            console.error("Error uploading image:", error);
+            alert("Failed to upload image. Please try again.");
+        } finally {
+            setUploading(false);
+        }
     };
 
     const handleCancel = () => {
         setName('');
-        setEmoji('');
         setQuantity('');
+        setImage(null);
         onClose();
     };
 
@@ -57,16 +97,6 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, on
                         autoFocus
                     />
 
-                    <Text style={styles.label}>Emoji (optional)</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="e.g., 🥛"
-                        placeholderTextColor="#A89B8F"
-                        value={emoji}
-                        onChangeText={setEmoji}
-                        maxLength={2}
-                    />
-
                     <Text style={styles.label}>Quantity (optional)</Text>
                     <TextInput
                         style={styles.input}
@@ -76,17 +106,32 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, on
                         onChangeText={setQuantity}
                     />
 
+                    <Text style={styles.label}>Image (optional)</Text>
+                    <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
+                        {image ? (
+                            <Image source={{ uri: image }} style={styles.previewImage} />
+                        ) : (
+                            <View style={styles.imagePlaceholder}>
+                                <Text style={styles.imagePlaceholderText}>+ Add Photo</Text>
+                            </View>
+                        )}
+                    </TouchableOpacity>
+
                     <View style={styles.buttonRow}>
-                        <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={handleCancel}>
+                        <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={handleCancel} disabled={uploading}>
                             <Text style={styles.cancelButtonText}>Cancel</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            style={[styles.button, styles.saveButton, !name.trim() && styles.disabledButton]}
+                            style={[styles.button, styles.saveButton, (!name.trim() || uploading) && styles.disabledButton]}
                             onPress={handleSave}
-                            disabled={!name.trim()}
+                            disabled={!name.trim() || uploading}
                         >
-                            <Text style={styles.saveButtonText}>Save</Text>
+                            {uploading ? (
+                                <ActivityIndicator color="#FFFFFF" size="small" />
+                            ) : (
+                                <Text style={styles.saveButtonText}>Save</Text>
+                            )}
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -139,6 +184,36 @@ const styles = StyleSheet.create({
         color: '#3D2E25',
         borderWidth: 2,
         borderColor: '#E3D2C3',
+    },
+    row: {
+        flexDirection: 'row',
+    },
+    imagePicker: {
+        width: 80,
+        height: 80,
+        borderRadius: 12,
+        backgroundColor: '#FFFFFF',
+        borderWidth: 2,
+        borderColor: '#E3D2C3',
+        borderStyle: 'dashed',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: 4,
+        overflow: 'hidden',
+    },
+    previewImage: {
+        width: '100%',
+        height: '100%',
+    },
+    imagePlaceholder: {
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    imagePlaceholderText: {
+        color: '#A89B8F',
+        fontSize: 12,
+        fontWeight: '600',
+        textAlign: 'center',
     },
     buttonRow: {
         flexDirection: 'row',

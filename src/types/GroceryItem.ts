@@ -4,6 +4,8 @@ export interface GroceryItem {
     name: string;
     emoji?: string;
     quantity?: string;
+    imageUrl?: string;
+    imagePath?: string;
     isDone: boolean;
     createdBy: string;
     createdAt: Date;

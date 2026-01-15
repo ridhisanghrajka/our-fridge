@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { NoteCanvas } from '../components/NoteCanvas';
+import { MagnetPicker } from '../components/MagnetPicker';
 import { CanvasElement } from '../types/SharedNote';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -35,6 +36,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
 }) => {
     const [elements, setElements] = useState<CanvasElement[]>([]);
     const [currentTool, setCurrentTool] = useState<Tool>('pen');
+    const [selectedMagnetType, setSelectedMagnetType] = useState<string>('uk');
 
     useEffect(() => {
         if (visible) {
@@ -112,6 +114,13 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                         ))}
                     </View>
 
+                    {/* Magnet Picker */}
+                    <MagnetPicker
+                        visible={currentTool === 'magnet'}
+                        selectedMagnetType={selectedMagnetType}
+                        onSelectMagnet={setSelectedMagnetType}
+                    />
+
                     {/* Canvas Area */}
                     {(() => {
                         const canvasWidth = modalWidth - 40;
@@ -125,6 +134,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                                     elements={elements}
                                     currentTool={currentTool}
                                     onElementsChange={setElements}
+                                    selectedMagnetType={selectedMagnetType}
                                 />
                                 {/* Tool Hint */}
                                 <View style={styles.hintContainer} pointerEvents="none">
@@ -142,7 +152,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                     {/* Footer */}
                     <View style={styles.footer}>
                         <TouchableOpacity onPress={onClose} style={[styles.button, styles.cancelButton]}>
-                            <Text style={styles.buttonText}>Cancel</Text>
+                            <Text style={[styles.buttonText, styles.cancelButtonText]}>Cancel</Text>
                         </TouchableOpacity>
                         <TouchableOpacity onPress={handleSave} style={[styles.button, styles.saveButton]}>
                             <Text style={[styles.buttonText, styles.saveButtonText]}>Save to Fridge</Text>
@@ -251,27 +261,39 @@ const styles = StyleSheet.create({
     },
     footer: {
         flexDirection: 'row',
-        justifyContent: 'flex-end',
-        gap: 12,
-        marginTop: 20,
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 25,
     },
     button: {
-        paddingVertical: 14,
-        paddingHorizontal: 28,
-        borderRadius: 15,
-        borderWidth: 3,
-        borderColor: '#6B4B3E',
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        minWidth: 100,
     },
     cancelButton: {
         backgroundColor: 'transparent',
+        paddingHorizontal: 8,
+        minWidth: 0,
     },
     saveButton: {
         backgroundColor: '#6B4B3E',
+        shadowColor: '#6B4B3E',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 4,
     },
     buttonText: {
         fontSize: 16,
-        fontWeight: '800',
+        fontWeight: '700',
         color: '#6B4B3E',
+    },
+    cancelButtonText: {
+        color: '#8B7361',
+        fontWeight: '600',
     },
     saveButtonText: {
         color: '#FFF7EE',

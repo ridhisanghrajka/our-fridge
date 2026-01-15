@@ -1,7 +1,7 @@
 export interface CanvasElement {
     id: string;
     type: 'path' | 'text' | 'magnet';
-    data: string; // SVG path string or text content
+    data: string; // SVG path string, text content, or magnet type ('usa', 'uk', 'default')
     x?: number;   // 0-1000 for text/magnets
     y?: number;   // 0-1000 for text/magnets
     color?: string;

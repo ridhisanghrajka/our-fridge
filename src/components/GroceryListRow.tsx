@@ -1,17 +1,19 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import Svg, { Path } from 'react-native-svg';
 import { GroceryItem } from '../types/GroceryItem';
 
 interface GroceryListRowProps {
     item: GroceryItem;
     onToggle: () => void;
+    onPress?: () => void;
     onDelete?: () => void;
     scale?: number;
     rowHeight?: number;
 }
 
-export const GroceryListRow: React.FC<GroceryListRowProps> = ({ item, onToggle, onDelete, scale = 1, rowHeight }) => {
+export const GroceryListRow: React.FC<GroceryListRowProps> = ({ item, onToggle, onPress, onDelete, scale = 1, rowHeight }) => {
     return (
         <TouchableOpacity
             style={[
@@ -19,17 +21,24 @@ export const GroceryListRow: React.FC<GroceryListRowProps> = ({ item, onToggle, 
                 { paddingVertical: 8 * scale }, // Reduced from 12 to help fit
                 rowHeight ? { height: rowHeight } : {}
             ]}
-            onPress={onToggle}
+            onPress={onPress || onToggle}
             activeOpacity={0.7}
         >
             {/* Checkbox */}
-            <View style={[styles.checkbox, {
-                width: 28 * scale, // Reduced from 32 to help fit better
-                height: 28 * scale,
-                borderRadius: 8 * scale,
-                borderWidth: item.isDone ? 0 : 2.5 * scale,
-                marginRight: 12 * scale // Reduced from 16
-            }, item.isDone && styles.checkboxDone]}>
+            <TouchableOpacity 
+                activeOpacity={0.7}
+                onPress={(e) => {
+                    e.stopPropagation();
+                    onToggle();
+                }}
+                style={[styles.checkbox, {
+                    width: 28 * scale, // Reduced from 32 to help fit better
+                    height: 28 * scale,
+                    borderRadius: 8 * scale,
+                    borderWidth: item.isDone ? 0 : 2.5 * scale,
+                    marginRight: 12 * scale // Reduced from 16
+                }, item.isDone && styles.checkboxDone]}
+            >
                 {item.isDone && (
                     <Svg width={14 * scale} height={14 * scale} viewBox="0 0 24 24">
                         <Path
@@ -38,7 +47,7 @@ export const GroceryListRow: React.FC<GroceryListRowProps> = ({ item, onToggle, 
                         />
                     </Svg>
                 )}
-            </View>
+            </TouchableOpacity>
 
             {/* Content with Underline */}
             <View style={[styles.contentContainer, { borderBottomWidth: 2 * scale, paddingBottom: 8 * scale }]}>
@@ -52,6 +61,15 @@ export const GroceryListRow: React.FC<GroceryListRowProps> = ({ item, onToggle, 
                     <Text style={[styles.quantity, { fontSize: 16 * scale, marginLeft: 8 * scale }, item.isDone && styles.quantityDone]}>
                         {item.quantity}
                     </Text>
+                )}
+
+                {item.imageUrl && (
+                    <Image 
+                        source={{ uri: item.imageUrl }} 
+                        style={[styles.itemImage, { width: 24 * scale, height: 24 * scale, marginLeft: 8 * scale, borderRadius: 4 * scale }]} 
+                        contentFit="cover"
+                        transition={200}
+                    />
                 )}
             </View>
 
@@ -111,6 +129,9 @@ const styles = StyleSheet.create({
         borderBottomWidth: 2, // Thicker line like SVG
         borderBottomColor: 'rgba(107, 75, 62, 0.15)', // Matching SVG line color logic
         paddingBottom: 8, // Space between text and line
+    },
+    itemImage: {
+        backgroundColor: '#E3D2C3',
     },
     emoji: {
         fontSize: 20,

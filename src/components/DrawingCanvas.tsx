@@ -67,7 +67,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
                 if (readOnly) return;
                 const { locationX, locationY } = evt.nativeEvent;
                 const v = toVirtual(locationX, locationY);
-                const path = `M ${v.x.toFixed(1)} ${v.y.toFixed(1)}`;
+                const path = `M ${v.x.toFixed(1)} ${v.y.toFixed(1)} L ${v.x.toFixed(1)} ${v.y.toFixed(1)}`;
                 currentPathRef.current = path;
                 setCurrentPath(path);
             },
