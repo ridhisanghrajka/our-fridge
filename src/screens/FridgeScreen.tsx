@@ -12,31 +12,40 @@ import { NoteModal } from './NoteModal';
 import { AddItemModal } from './AddItemModal';
 import { NotepadSVG } from '../components/NotepadSVG';
 import { GroceryListRow } from '../components/GroceryListRow';
+import { EditItemModal } from './EditItemModal';
+import { GroceryItem } from '../types/GroceryItem';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 export const FridgeScreen: React.FC = () => {
     const { pairId, userName, pair } = usePairing();
-    const { items, addItem, toggleItem, deleteItem } = useGroceryItems(pairId, userName);
+    const { items, addItem, toggleItem, deleteItem, updateItem } = useGroceryItems(pairId, userName);
     const { note, updateNote } = useSharedNote(pairId, userName);
 
     // Calculate notepad title
-    let notepadTitle = "Our Fridge";
-    if (pair) {
-        if (pair.userAName && pair.userBName) {
-            notepadTitle = `${pair.userAName} & ${pair.userBName}'s Fridge`;
-        } else if (pair.userAName || pair.userBName) {
-            notepadTitle = `${pair.userAName || pair.userBName}'s Fridge`;
+    let notepadTitle = pair?.fridgeName || "Our Fridge";
+    if (!pair?.fridgeName) {
+        if (pair) {
+            if (pair.userAName && pair.userBName) {
+                notepadTitle = `${pair.userAName} & ${pair.userBName}'s Fridge`;
+            } else if (pair.userAName || pair.userBName) {
+                notepadTitle = `${pair.userAName || pair.userBName}'s Fridge`;
+            }
+        } else if (userName) {
+            notepadTitle = `${userName}'s Fridge`;
         }
-    } else if (userName) {
-        notepadTitle = `${userName}'s Fridge`;
     }
 
     const [addItemVisible, setAddItemVisible] = useState(false);
     const [writeNoteVisible, setWriteNoteVisible] = useState(false);
+    const [editingItem, setEditingItem] = useState<GroceryItem | null>(null);
 
-    const handleAddItem = async (name: string, emoji?: string, quantity?: string) => {
-        await addItem(name, emoji, quantity);
+    const handleAddItem = async (name: string, quantity?: string, imageUrl?: string, imagePath?: string) => {
+        await addItem(name, undefined, quantity, imageUrl, imagePath);
+    };
+
+    const handleUpdateItem = async (itemId: string, updates: any) => {
+        await updateItem(itemId, updates);
     };
 
     const handleUpdateNote = async (content: string) => {
@@ -141,6 +150,7 @@ export const FridgeScreen: React.FC = () => {
                         <GroceryListRow
                             item={item}
                             onToggle={() => toggleItem(item.id, item.isDone)}
+                            onPress={() => setEditingItem(item)}
                             onDelete={() => deleteItem(item.id)}
                             scale={rScale}
                             rowHeight={listHeight / 5}
@@ -216,6 +226,14 @@ export const FridgeScreen: React.FC = () => {
                 onClose={() => setWriteNoteVisible(false)}
                 onSave={handleUpdateNote}
                 rScale={rScale}
+            />
+
+            <EditItemModal
+                visible={!!editingItem}
+                item={editingItem}
+                onClose={() => setEditingItem(null)}
+                onSave={handleUpdateItem}
+                onDelete={deleteItem}
             />
         </LinearGradient >
     );

@@ -8,7 +8,9 @@ import {
     joinPair as joinPairService,
     getStoredPairId,
     getStoredUserName,
-    clearPairing as clearPairingService
+    clearPairing as clearPairingService,
+    updateFridgeName as updateFridgeNameService,
+    updateUserName as updateUserNameService
 } from '../services/pairing';
 
 export const usePairing = () => {
@@ -26,9 +28,13 @@ export const usePairing = () => {
                 const storedUserName = await getStoredUserName();
                 setPairId(storedPairId);
                 setUserName(storedUserName);
+                
+                // If no pair ID, we can stop loading now as we'll show the pairing screen
+                if (!storedPairId) {
+                    setLoading(false);
+                }
             } catch (err) {
                 console.error('Error loading stored data:', err);
-            } finally {
                 setLoading(false);
             }
         };
@@ -51,11 +57,17 @@ export const usePairing = () => {
                     id: snapshot.id,
                     userAName: data.userAName,
                     userBName: data.userBName,
+                    fridgeName: data.fridgeName,
                     createdAt: data.createdAt?.toDate() || new Date(),
                 });
             } else {
                 setPair(null);
             }
+            // Once the first snapshot is received, we are ready to show the UI
+            setLoading(false);
+        }, (error) => {
+            console.error("Error listening to pair updates:", error);
+            setLoading(false);
         });
 
         return () => unsubscribe();
@@ -93,6 +105,17 @@ export const usePairing = () => {
         setUserName(null);
     };
 
+    const updateFridgeName = async (newName: string) => {
+        if (!pairId) return;
+        await updateFridgeNameService(pairId, newName);
+    };
+
+    const updateUserName = async (newName: string) => {
+        if (!pairId || !userName) return;
+        await updateUserNameService(pairId, userName, newName);
+        setUserName(newName);
+    };
+
     return {
         pairId,
         pair,
@@ -102,5 +125,7 @@ export const usePairing = () => {
         createNewPair,
         joinExistingPair,
         unpair,
+        updateFridgeName,
+        updateUserName,
     };
 };

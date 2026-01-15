@@ -29,6 +29,7 @@ export const createPair = async (code: string, userName: string): Promise<void> 
     const newPair: Omit<Pair, 'id'> = {
         userAName: userName,
         userBName: '',
+        fridgeName: `${userName}'s Fridge`,
         createdAt: new Date(),
     };
 
@@ -69,6 +70,38 @@ export const joinPair = async (code: string, userName: string): Promise<void> =>
     // Save to local storage
     await AsyncStorage.setItem(PAIR_ID_KEY, code);
     await AsyncStorage.setItem(USER_NAME_KEY, userName);
+};
+
+/**
+ * Update the fridge name
+ */
+export const updateFridgeName = async (code: string, fridgeName: string): Promise<void> => {
+    const pairRef = doc(db, 'pairs', code);
+    await updateDoc(pairRef, { fridgeName });
+};
+
+/**
+ * Update the user name
+ */
+export const updateUserName = async (code: string, oldName: string, newName: string): Promise<void> => {
+    const pairRef = doc(db, 'pairs', code);
+    const pairSnap = await getDoc(pairRef);
+    
+    if (!pairSnap.exists()) return;
+    
+    const data = pairSnap.data();
+    const updateData: any = {};
+    
+    if (data.userAName === oldName) {
+        updateData.userAName = newName;
+    } else if (data.userBName === oldName) {
+        updateData.userBName = newName;
+    }
+    
+    if (Object.keys(updateData).length > 0) {
+        await updateDoc(pairRef, updateData);
+        await AsyncStorage.setItem(USER_NAME_KEY, newName);
+    }
 };
 
 /**
