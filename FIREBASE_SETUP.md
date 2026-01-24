@@ -65,6 +65,9 @@ service firebase.storage {
     match /grocery-items/{allPaths=**} {
       allow read, write: if true;
     }
+    match /profile_images/{allPaths=**} {
+      allow read, write: if true;
+    }
   }
 }
 ```

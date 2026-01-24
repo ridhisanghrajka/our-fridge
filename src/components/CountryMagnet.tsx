@@ -22,29 +22,29 @@ export const CountryMagnet: React.FC<CountryMagnetProps> = ({ country, x, y, sca
     switch (country) {
         case 'uk':
             imageSource = require('../assets/uk_magnet.png');
-            baseWidth = 450;
-            baseHeight = 590;
+            baseWidth = 320;
+            baseHeight = 420;
             break;
         case 'germany':
             imageSource = require('../assets/germany_magnet.png');
-            baseWidth = 500;
-            baseHeight = 625;
+            baseWidth = 350;
+            baseHeight = 440;
             break;
         case 'canada':
             imageSource = require('../assets/canada_magnet.png');
-            baseWidth = 900;
-            baseHeight = 600;
+            baseWidth = 450;
+            baseHeight = 300;
             break;
         case 'australia':
             imageSource = require('../assets/australia_magnet.png');
-            baseWidth = 840;
-            baseHeight = 600;
+            baseWidth = 420;
+            baseHeight = 300;
             break;
         case 'usa':
         default:
             imageSource = require('../assets/usa_magnet.png');
-            baseWidth = 1000;
-            baseHeight = 600;
+            baseWidth = 500;
+            baseHeight = 300;
             break;
     }
 

@@ -18,7 +18,7 @@ interface DrawingCanvasProps {
     scale?: number;
 }
 
-const VIRTUAL_SIZE = 1000;
+const VIRTUAL_WIDTH = 1000;
 
 export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     width,
@@ -29,6 +29,9 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     strokeColor = '#6B4B3E',
     strokeWidth = 15, // Increased for better visibility
 }) => {
+    // Proportional virtual height
+    const virtualHeight = (height / width) * VIRTUAL_WIDTH;
+
     const [paths, setPaths] = useState<string[]>([]);
     const [currentPath, setCurrentPath] = useState<string>('');
     const pathsRef = useRef<string[]>([]);
@@ -54,8 +57,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     // Map pixel coordinates to virtual coordinates
     const toVirtual = (pixelX: number, pixelY: number) => {
         return {
-            x: (pixelX / sizeRef.current.width) * VIRTUAL_SIZE,
-            y: (pixelY / sizeRef.current.height) * VIRTUAL_SIZE
+            x: (pixelX / sizeRef.current.width) * VIRTUAL_WIDTH,
+            y: (pixelY / sizeRef.current.height) * virtualHeight
         };
     };
 
@@ -103,7 +106,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
             <Svg
                 width={width}
                 height={height}
-                viewBox={`0 0 ${VIRTUAL_SIZE} ${VIRTUAL_SIZE}`}
+                viewBox={`0 0 ${VIRTUAL_WIDTH} ${virtualHeight}`}
                 pointerEvents="none"
             >
                 {paths.map((path, index) => (

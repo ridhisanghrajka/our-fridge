@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
-import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, FlatList } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../../firebase.config';
+import { usePairing } from '../hooks/usePairing';
+import { useGroceryMemory } from '../hooks/useGroceryMemory';
+import { GroceryMemory } from '../types/GroceryMemory';
 
 interface AddItemModalProps {
     visible: boolean;
@@ -12,10 +15,37 @@ interface AddItemModalProps {
 }
 
 export const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onAdd }) => {
+    const { pairId } = usePairing();
+    const { suggestions, refreshMemories } = useGroceryMemory(pairId);
+
     const [name, setName] = useState('');
     const [quantity, setQuantity] = useState('');
     const [image, setImage] = useState<string | null>(null);
+    const [imagePath, setImagePath] = useState<string | null>(null); // To track existing storage paths
     const [uploading, setUploading] = useState(false);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+
+    // Refresh memories when modal becomes visible
+    React.useEffect(() => {
+        if (visible && pairId) {
+            refreshMemories();
+        }
+    }, [visible, pairId, refreshMemories]);
+
+    const activeSuggestions = useMemo(() => {
+        if (!visible) return [];
+        return suggestions(name);
+    }, [name, suggestions, visible]);
+
+    const handleSelectSuggestion = (suggestion: GroceryMemory) => {
+        setName(suggestion.displayName);
+        if (suggestion.quantity) setQuantity(suggestion.quantity);
+        if (suggestion.imageUrl) {
+            setImage(suggestion.imageUrl);
+            setImagePath(suggestion.imagePath || null);
+        }
+        setShowSuggestions(false);
+    };
 
     const pickImage = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -27,40 +57,28 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, on
 
         if (!result.canceled) {
             setImage(result.assets[0].uri);
+            setImagePath(null); // New image picked, clear old storage path
         }
     };
 
     const handleSave = async () => {
         if (!name.trim()) return;
 
-        setUploading(true);
+        // We don't setUploading(true) here anymore because the hook handles it in the background
         try {
-            let imageUrl = undefined;
-            let imagePath = undefined;
+            // Immediately call onAdd with the local URI for instant UI update
+            onAdd(name.trim(), quantity.trim() || undefined, image || undefined, imagePath || undefined);
 
-            if (image) {
-                const response = await fetch(image);
-                const blob = await response.blob();
-                const filename = `grocery-items/${Date.now()}-${name.trim()}.jpg`;
-                const storageRef = ref(storage, filename);
-                
-                await uploadBytes(storageRef, blob);
-                imageUrl = await getDownloadURL(storageRef);
-                imagePath = filename;
-            }
-
-            onAdd(name.trim(), quantity.trim() || undefined, imageUrl, imagePath);
-
-            // Reset fields
+            // Reset fields and close instantly
             setName('');
             setQuantity('');
             setImage(null);
+            setImagePath(null);
+            setShowSuggestions(false);
             onClose();
         } catch (error) {
-            console.error("Error uploading image:", error);
-            alert("Failed to upload image. Please try again.");
-        } finally {
-            setUploading(false);
+            console.error("Error saving item:", error);
+            alert("Failed to save item. Please try again.");
         }
     };
 
@@ -68,6 +86,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, on
         setName('');
         setQuantity('');
         setImage(null);
+        setImagePath(null);
+        setShowSuggestions(false);
         onClose();
     };
 
@@ -88,14 +108,44 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, on
                     <Text style={styles.title}>Add Item</Text>
 
                     <Text style={styles.label}>Item Name *</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="e.g., Milk"
-                        placeholderTextColor="#A89B8F"
-                        value={name}
-                        onChangeText={setName}
-                        autoFocus
-                    />
+                    <View style={styles.inputContainer}>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="e.g., Milk"
+                            placeholderTextColor="#A89B8F"
+                            value={name}
+                            onChangeText={(text) => {
+                                setName(text);
+                                setShowSuggestions(true);
+                            }}
+                            onFocus={() => setShowSuggestions(true)}
+                            autoFocus
+                        />
+
+                        {showSuggestions && activeSuggestions.length > 0 && (
+                            <View style={styles.suggestionsContainer}>
+                                {activeSuggestions.map((suggestion) => (
+                                    <TouchableOpacity
+                                        key={suggestion.id}
+                                        style={styles.suggestionItem}
+                                        onPress={() => handleSelectSuggestion(suggestion)}
+                                    >
+                                        <View style={styles.suggestionContent}>
+                                            {suggestion.imageUrl && (
+                                                <Image source={{ uri: suggestion.imageUrl }} style={styles.suggestionImage} />
+                                            )}
+                                            <View style={styles.suggestionTextContainer}>
+                                                <Text style={styles.suggestionName}>{suggestion.displayName}</Text>
+                                                {suggestion.quantity && (
+                                                    <Text style={styles.suggestionQuantity}>{suggestion.quantity}</Text>
+                                                )}
+                                            </View>
+                                        </View>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
+                    </View>
 
                     <Text style={styles.label}>Quantity (optional)</Text>
                     <TextInput
@@ -156,22 +206,26 @@ const styles = StyleSheet.create({
         padding: 24,
         width: '85%',
         maxWidth: 400,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.2,
-        shadowRadius: 16,
+        shadowColor: '#6B4B3E',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.08,
+        shadowRadius: 24,
         elevation: 10,
+        borderWidth: 1,
+        borderColor: '#6B4B3E',
     },
     title: {
-        fontSize: 24,
-        fontWeight: 'bold',
+        fontSize: 22, // Reduced from 24 to match section titles
+        fontFamily: 'Poppins-SemiBold',
         color: '#3D2E25',
         marginBottom: 20,
         textAlign: 'center',
     },
     label: {
-        fontSize: 14,
-        fontWeight: '600',
+        fontSize: 12, // Reduced from 14
+        fontFamily: 'Inter-Bold',
+        textTransform: 'uppercase',
+        letterSpacing: 1.2,
         color: '#6B4B3E',
         marginBottom: 6,
         marginTop: 8,
@@ -181,9 +235,72 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         padding: 14,
         fontSize: 16,
+        fontFamily: 'Inter-Regular',
         color: '#3D2E25',
         borderWidth: 2,
         borderColor: '#E3D2C3',
+    },
+    inputContainer: {
+        zIndex: 1000,
+        position: 'relative',
+    },
+    suggestionsContainer: {
+        backgroundColor: '#FFFBF7',
+        borderRadius: 16,
+        marginTop: 4,
+        borderWidth: 1,
+        borderColor: '#E3D2C3',
+        maxHeight: 200,
+        overflow: 'hidden',
+        shadowColor: '#6B4B3E',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.1,
+        shadowRadius: 16,
+        elevation: 6,
+        position: 'absolute',
+        top: '100%',
+        left: 0,
+        right: 0,
+    },
+    suggestionItem: {
+        padding: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F5EEE6',
+    },
+    suggestionContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    suggestionImage: {
+        width: 32,
+        height: 32,
+        borderRadius: 6,
+        marginRight: 12,
+        backgroundColor: '#F5EEE6',
+    },
+    suggestionImagePlaceholder: {
+        width: 32,
+        height: 32,
+        borderRadius: 6,
+        marginRight: 12,
+        backgroundColor: '#F5EEE6',
+        borderWidth: 1,
+        borderColor: '#E3D2C3',
+        borderStyle: 'dashed',
+    },
+    suggestionTextContainer: {
+        flex: 1,
+    },
+    suggestionName: {
+        fontSize: 15,
+        fontFamily: 'Inter-SemiBold',
+        color: '#3D2E25',
+    },
+    suggestionQuantity: {
+        fontSize: 12,
+        color: '#A89B8F',
+        marginTop: 1,
+        fontFamily: 'Inter-Medium',
     },
     row: {
         flexDirection: 'row',
@@ -212,7 +329,7 @@ const styles = StyleSheet.create({
     imagePlaceholderText: {
         color: '#A89B8F',
         fontSize: 12,
-        fontWeight: '600',
+        fontFamily: 'Inter-SemiBold',
         textAlign: 'center',
     },
     buttonRow: {
@@ -238,11 +355,11 @@ const styles = StyleSheet.create({
     cancelButtonText: {
         color: '#3D2E25',
         fontSize: 16,
-        fontWeight: '600',
+        fontFamily: 'Inter-SemiBold',
     },
     saveButtonText: {
         color: '#FFFFFF',
         fontSize: 16,
-        fontWeight: '600',
+        fontFamily: 'Inter-SemiBold',
     },
 });

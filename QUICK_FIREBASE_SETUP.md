@@ -38,7 +38,29 @@ service cloud.firestore {
 
 3. Click **"Publish"** button
 
-### Step 4: Test the App
+### Step 4: Set Up Storage Rules (For Profile Pictures)
+1. In the left sidebar, click **"Storage"**
+2. If you see a button that says **"Get started"**, click it and follow the prompts (Done/Next)
+3. Click the **"Rules"** tab at the top
+4. Replace the text with this:
+
+```
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /profile_images/{allPaths=**} {
+      allow read, write: if true;
+    }
+    match /grocery-items/{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}
+```
+
+5. Click **"Publish"**
+
+### Step 5: Test the App
 1. Reload your app in Expo (press 'r' in the terminal or shake your phone and tap "Reload")
 2. Try creating a new fridge again
 3. Check the terminal/console for any error messages

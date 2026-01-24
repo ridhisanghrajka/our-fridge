@@ -32,3 +32,6 @@ dist/
 
 # Firebase Config
 firebase.config.ts
+
+# Google Config
+src/config/googleConfig.ts

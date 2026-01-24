@@ -1,7 +1,9 @@
 export interface Pair {
   id: string;              // 6-digit pairing code
-  userAName: string;
-  userBName: string;
-  fridgeName?: string;
+  memberUids: string[];
+  memberNames: { [uid: string]: string };
+  memberPhotos?: { [uid: string]: string };
+  fridgeName: string;
+  isPremiumEnabled: boolean;
   createdAt: Date;
 }

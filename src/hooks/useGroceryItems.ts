@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, Timestamp, orderBy } from 'firebase/firestore';
-import { ref, deleteObject } from 'firebase/storage';
+import { ref, deleteObject, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../firebase.config';
 import { GroceryItem } from '../types/GroceryItem';
+import { User } from '../types/User';
+import { upsertMemoryItem } from '../services/groceryMemory';
+import { logActivity } from '../services/activity';
 
-export const useGroceryItems = (pairId: string | null, userName: string | null) => {
+export const useGroceryItems = (pairId: string | null, user: User | null) => {
     const [items, setItems] = useState<GroceryItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const userName = user?.name || 'User';
 
     useEffect(() => {
         if (!pairId) {
@@ -58,7 +62,7 @@ export const useGroceryItems = (pairId: string | null, userName: string | null) 
     const addItem = async (name: string, emoji?: string, quantity?: string, imageUrl?: string, imagePath?: string) => {
         if (!pairId) return;
 
-        const newItem = {
+        const newItemData: any = {
             pairId,
             name,
             emoji: emoji || '',
@@ -71,7 +75,44 @@ export const useGroceryItems = (pairId: string | null, userName: string | null) 
             updatedAt: Timestamp.now(),
         };
 
-        await addDoc(collection(db, 'groceryItems'), newItem);
+        const docRef = await addDoc(collection(db, 'groceryItems'), newItemData);
+
+        // Log activity
+        if (user) {
+            logActivity(pairId, user.uid, userName, user.photoURL, 'ADD', name).catch(err =>
+                console.error("Error logging add activity:", err)
+            );
+        }
+
+        // Update implicit memory
+        upsertMemoryItem(pairId, name, quantity, imageUrl, imagePath).catch(err => 
+            console.error("Error updating memory:", err)
+        );
+
+        // If the imageUrl is a local file, we need to upload it in the background
+        if (imageUrl && imageUrl.startsWith('file://')) {
+            try {
+                const response = await fetch(imageUrl);
+                const blob = await response.blob();
+                const filename = `grocery-items/${Date.now()}-${name.trim()}.jpg`;
+                const storageRef = ref(storage, filename);
+                
+                await uploadBytes(storageRef, blob);
+                const downloadUrl = await getDownloadURL(storageRef);
+                
+                // Update the document with the real remote URL
+                await updateDoc(docRef, {
+                    imageUrl: downloadUrl,
+                    imagePath: filename,
+                    updatedAt: Timestamp.now(),
+                });
+
+                // Also update the memory with the permanent URL
+                upsertMemoryItem(pairId, name, quantity, downloadUrl, filename).catch(() => {});
+            } catch (error) {
+                console.error("Error in background image upload:", error);
+            }
+        }
     };
 
     const toggleItem = async (itemId: string, currentStatus: boolean) => {
@@ -83,19 +124,6 @@ export const useGroceryItems = (pairId: string | null, userName: string | null) 
     };
 
     const deleteItem = async (itemId: string) => {
-        // Find the item to check if it has an image
-        const itemToDelete = items.find(i => i.id === itemId);
-        
-        // Delete image from storage if it exists
-        if (itemToDelete?.imagePath) {
-            try {
-                const imageRef = ref(storage, itemToDelete.imagePath);
-                await deleteObject(imageRef);
-            } catch (error) {
-                console.error("Error deleting image from storage:", error);
-            }
-        }
-
         const itemRef = doc(db, 'groceryItems', itemId);
         await deleteDoc(itemRef);
     };
@@ -103,23 +131,21 @@ export const useGroceryItems = (pairId: string | null, userName: string | null) 
     const updateItem = async (itemId: string, updates: Partial<Pick<GroceryItem, 'name' | 'quantity' | 'imageUrl' | 'imagePath' | 'emoji'>>) => {
         const itemRef = doc(db, 'groceryItems', itemId);
         
-        // If we're updating the image and there's an old one, delete the old one
-        if (updates.imagePath) {
-            const oldItem = items.find(i => i.id === itemId);
-            if (oldItem?.imagePath && oldItem.imagePath !== updates.imagePath) {
-                try {
-                    const oldImageRef = ref(storage, oldItem.imagePath);
-                    await deleteObject(oldImageRef);
-                } catch (error) {
-                    console.error("Error deleting old image from storage:", error);
-                }
-            }
-        }
+        // Find the item to get its current name for the log if name isn't in updates
+        const currentItem = items.find(i => i.id === itemId);
+        const nameForLog = updates.name || currentItem?.name || 'Unknown Item';
 
         await updateDoc(itemRef, {
             ...updates,
             updatedAt: Timestamp.now(),
         });
+
+        // Log activity
+        if (pairId && user) {
+            logActivity(pairId, user.uid, userName, user.photoURL, 'UPDATE', nameForLog).catch(err =>
+                console.error("Error logging update activity:", err)
+            );
+        }
     };
 
     return {

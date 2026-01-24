@@ -3,6 +3,7 @@
     "name": "OurFridge",
     "slug": "OurFridge",
     "version": "1.0.0",
+    "scheme": "ourfridge",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -13,7 +14,17 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ridhisanghrajka.ourfridge",
+      "infoPlist": {
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Our Fridge uses your location to remind you to pick up groceries when you leave work or arrive at the store.",
+        "NSLocationAlwaysUsageDescription": "Our Fridge uses your location to remind you to pick up groceries when you leave work or arrive at the store.",
+        "NSLocationWhenInUseUsageDescription": "Our Fridge uses your location to help you set your favorite grocery store and work locations.",
+        "UIBackgroundModes": [
+          "location",
+          "fetch"
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,13 +32,22 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.ridhisanghrajka.ourfridge"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-asset"
-    ]
+      "expo-asset",
+      "@react-native-community/datetimepicker",
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "bc33b21d-475c-449b-849e-df92a513bd7e"
+      }
+    },
+    "owner": "ridhisanghrajka"
   }
 }

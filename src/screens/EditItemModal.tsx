@@ -228,12 +228,14 @@ const styles = StyleSheet.create({
         width: '90%',
         maxHeight: '80%',
         maxWidth: 500,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.3,
-        shadowRadius: 20,
+        shadowColor: '#6B4B3E',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.08,
+        shadowRadius: 24,
         elevation: 15,
         position: 'relative',
+        borderWidth: 1,
+        borderColor: '#6B4B3E',
     },
     closeButton: {
         position: 'absolute',
@@ -253,8 +255,8 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
     title: {
-        fontSize: 26,
-        fontWeight: 'bold',
+        fontSize: 22,
+        fontFamily: 'Poppins-SemiBold',
         color: '#3D2E25',
         marginBottom: 24,
         textAlign: 'center',
@@ -305,8 +307,10 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     label: {
-        fontSize: 14,
-        fontWeight: '700',
+        fontSize: 12,
+        fontFamily: 'Inter-Bold',
+        textTransform: 'uppercase',
+        letterSpacing: 1.2,
         color: '#6B4B3E',
         marginBottom: 8,
         marginLeft: 4,
@@ -315,7 +319,8 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
         borderRadius: 16,
         padding: 16,
-        fontSize: 18,
+        fontSize: 16,
+        fontFamily: 'Inter-Regular',
         color: '#3D2E25',
         borderWidth: 2,
         borderColor: '#E3D2C3',
@@ -341,7 +346,7 @@ const styles = StyleSheet.create({
     deleteButtonText: {
         color: '#D32F2F',
         fontSize: 16,
-        fontWeight: '600',
+        fontFamily: 'Inter-SemiBold',
     },
     saveButton: {
         backgroundColor: '#6B4B3E',
@@ -350,7 +355,7 @@ const styles = StyleSheet.create({
     saveButtonText: {
         color: '#FFFFFF',
         fontSize: 16,
-        fontWeight: '600',
+        fontFamily: 'Inter-SemiBold',
     },
     editButton: {
         backgroundColor: '#6B4B3E',
@@ -359,7 +364,7 @@ const styles = StyleSheet.create({
     editButtonText: {
         color: '#FFFFFF',
         fontSize: 16,
-        fontWeight: '600',
+        fontFamily: 'Inter-SemiBold',
     },
     cancelEditButton: {
         backgroundColor: '#E3D2C3',
@@ -368,7 +373,7 @@ const styles = StyleSheet.create({
     cancelEditButtonText: {
         color: '#3D2E25',
         fontSize: 16,
-        fontWeight: '600',
+        fontFamily: 'Inter-SemiBold',
     },
     readOnlyInput: {
         backgroundColor: 'rgba(227, 210, 195, 0.2)',

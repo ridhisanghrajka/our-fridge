@@ -4,7 +4,7 @@ import Svg, { Path, Text as SvgText, G, Circle, Rect } from 'react-native-svg';
 import { CanvasElement } from '../types/SharedNote';
 import { CountryMagnet } from './CountryMagnet';
 
-const VIRTUAL_SIZE = 1000;
+const VIRTUAL_WIDTH = 1000;
 
 interface NoteCanvasProps {
     width: number;
@@ -29,6 +29,9 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
     strokeWidth = 15,
     selectedMagnetType = 'usa',
 }) => {
+    // Proportional virtual height
+    const virtualHeight = (height / width) * VIRTUAL_WIDTH;
+
     // Canvas State
     const [currentPath, setCurrentPath] = useState<string>('');
     const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -101,14 +104,9 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
 
     const toVirtual = (pixelX: number, pixelY: number) => {
         const { width: w, height: h } = sizeRef.current;
-        // SVG uses "xMidYMid meet" by default for viewBox="0 0 1000 1000"
-        const scale = Math.min(w, h) / VIRTUAL_SIZE;
-        const offsetX = (w - VIRTUAL_SIZE * scale) / 2;
-        const offsetY = (h - VIRTUAL_SIZE * scale) / 2;
-
         return {
-            x: (pixelX - offsetX) / scale,
-            y: (pixelY - offsetY) / scale
+            x: (pixelX / w) * VIRTUAL_WIDTH,
+            y: (pixelY / h) * virtualHeight
         };
     };
 
@@ -120,9 +118,9 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
 
     const getBoxSize = (el: CanvasElement) => {
         if (el.type === 'text') {
-            const charWidth = (el.size || 50) * 0.6;
+            const charWidth = (el.size || 210) * 0.6;
             const w = Math.max(150, (el.data.length * charWidth) + 40);
-            const h = Math.max(100, (el.size || 50) + 40);
+            const h = Math.max(100, (el.size || 210) + 40);
             return { w: w * (el.scale || 1), h: h * (el.scale || 1) };
         }
         if (el.type === 'magnet') {
@@ -132,9 +130,9 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
             switch (el.data) {
                 case 'uk': return { w: 320 * scale, h: 420 * scale };
                 case 'germany': return { w: 350 * scale, h: 440 * scale };
-                case 'canada': return { w: 900 * scale, h: 600 * scale };
-                case 'australia': return { w: 840 * scale, h: 600 * scale };
-                case 'usa': return { w: 1000 * scale, h: 600 * scale };
+                case 'canada': return { w: 450 * scale, h: 300 * scale };
+                case 'australia': return { w: 420 * scale, h: 300 * scale };
+                case 'usa': return { w: 500 * scale, h: 300 * scale };
                 default:
                     const s = (el.size || 60) * scale;
                     return { w: s, h: s };
@@ -213,7 +211,7 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
                     x: typingPos.x,
                     y: typingPos.y,
                     color: strokeColor,
-                    size: 350,
+                    size: 210,
                     scale: 1
                 };
                 onElementsChange([...elementsRef.current, newElement]);
@@ -495,7 +493,7 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
     return (
         <View style={[styles.container, { width, height }]}>
             <View style={StyleSheet.absoluteFill} {...(readOnly || isTyping ? {} : panResponder.panHandlers)}>
-                <Svg width={width} height={height} viewBox={`0 0 ${VIRTUAL_SIZE} ${VIRTUAL_SIZE}`} pointerEvents="none">
+                <Svg width={width} height={height} viewBox={`0 0 ${VIRTUAL_WIDTH} ${virtualHeight}`} pointerEvents="none">
                     {elements.map((el) => {
                         const isSelected = el.id === selectedId;
                         if (el.type === 'path') {
@@ -512,7 +510,7 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
                             );
                         } else if (el.type === 'text') {
                             const scale = el.scale || 1;
-                            const size = (el.size || 40) * scale;
+                            const size = (el.size || 210) * scale;
                             return (
                                 <G key={el.id}>
                                     <SvgText
@@ -520,7 +518,7 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
                                         y={el.y}
                                         fill={el.color || strokeColor}
                                         fontSize={size}
-                                        fontWeight="600"
+                                        fontFamily="Poppins-SemiBold"
                                         textAnchor="middle"
                                         alignmentBaseline="central"
                                     >
@@ -584,8 +582,8 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
                         <View style={StyleSheet.absoluteFill} />
                     </TouchableWithoutFeedback>
                     <View style={[styles.typingContainer, {
-                        left: (typingPos.x / VIRTUAL_SIZE) * width - (width * 0.4),
-                        top: (typingPos.y / VIRTUAL_SIZE) * height - 40,
+                        left: (typingPos.x / VIRTUAL_WIDTH) * width - (width * 0.4),
+                        top: (typingPos.y / virtualHeight) * height - 40,
                         width: width * 0.8
                     }]}>
                         <TextInput
@@ -614,7 +612,7 @@ const styles = StyleSheet.create({
     },
     textInput: {
         fontSize: 32,
-        fontWeight: '700',
+        fontFamily: 'Inter-Bold',
         color: '#6B4B3E',
         textAlign: 'center',
         padding: 15,

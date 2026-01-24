@@ -1,10 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Dimensions, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePairing } from '../hooks/usePairing';
 import Svg, { Path, G, Defs, Use, ClipPath, Rect } from 'react-native-svg';
 import { useGroceryItems } from '../hooks/useGroceryItems';
 import { useSharedNote } from '../hooks/useSharedNote';
+import { useNotificationPrefs } from '../hooks/useNotificationPrefs';
+import { useNavigation } from '@react-navigation/native';
 import { FridgeSVG } from '../components/FridgeSVG';
 import { FridgeHandleSVG } from '../components/FridgeHandleSVG';
 import { NoteCanvas } from '../components/NoteCanvas';
@@ -14,34 +16,45 @@ import { NotepadSVG } from '../components/NotepadSVG';
 import { GroceryListRow } from '../components/GroceryListRow';
 import { EditItemModal } from './EditItemModal';
 import { GroceryItem } from '../types/GroceryItem';
+import { presentPaywall } from '../services/billing';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 export const FridgeScreen: React.FC = () => {
-    const { pairId, userName, pair } = usePairing();
-    const { items, addItem, toggleItem, deleteItem, updateItem } = useGroceryItems(pairId, userName);
+    const navigation = useNavigation<any>();
+    const { pairId, userName, user, pair, startTrial, hasJustStartedTrial, resetTrialTrigger } = usePairing();
+    const { items, addItem, toggleItem, deleteItem, updateItem } = useGroceryItems(pairId, user);
     const { note, updateNote } = useSharedNote(pairId, userName);
-
-    // Calculate notepad title
-    let notepadTitle = pair?.fridgeName || "Our Fridge";
-    if (!pair?.fridgeName) {
-        if (pair) {
-            if (pair.userAName && pair.userBName) {
-                notepadTitle = `${pair.userAName} & ${pair.userBName}'s Fridge`;
-            } else if (pair.userAName || pair.userBName) {
-                notepadTitle = `${pair.userAName || pair.userBName}'s Fridge`;
-            }
-        } else if (userName) {
-            notepadTitle = `${userName}'s Fridge`;
-        }
-    }
+    const { reminders } = useNotificationPrefs(pairId, userName);
 
     const [addItemVisible, setAddItemVisible] = useState(false);
     const [writeNoteVisible, setWriteNoteVisible] = useState(false);
     const [editingItem, setEditingItem] = useState<GroceryItem | null>(null);
+    const [scrollPercent, setScrollPercent] = useState(0);
+
+    // Calculate notepad title
+    const notepadTitle = pair?.fridgeName || (userName ? `${userName}'s Fridge` : "Our Fridge");
+
+    // Show trial celebration/paywall
+    React.useEffect(() => {
+        if (hasJustStartedTrial) {
+            Alert.alert(
+                "That's a Wrap! 🧊",
+                "Your first item is on the fridge. Your 7-day Pro trial has officially started!",
+                [{ 
+                    text: "Great!", 
+                    onPress: async () => {
+                        resetTrialTrigger();
+                        await presentPaywall();
+                    }
+                }]
+            );
+        }
+    }, [hasJustStartedTrial]);
 
     const handleAddItem = async (name: string, quantity?: string, imageUrl?: string, imagePath?: string) => {
         await addItem(name, undefined, quantity, imageUrl, imagePath);
+        await startTrial();
     };
 
     const handleUpdateItem = async (itemId: string, updates: any) => {
@@ -50,6 +63,7 @@ export const FridgeScreen: React.FC = () => {
 
     const handleUpdateNote = async (content: string) => {
         await updateNote(content);
+        await startTrial();
     };
 
     // Parse canvas elements safely
@@ -143,23 +157,78 @@ export const FridgeScreen: React.FC = () => {
 
             {/* Grocery list overlay */}
             <View style={[styles.listContainer, { left: listLeft, top: listTop, width: listWidth, height: listHeight }]}>
-                <FlatList
-                    data={items}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                        <GroceryListRow
-                            item={item}
-                            onToggle={() => toggleItem(item.id, item.isDone)}
-                            onPress={() => setEditingItem(item)}
-                            onDelete={() => deleteItem(item.id)}
-                            scale={rScale}
-                            rowHeight={listHeight / 5}
-                        />
-                    )}
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={styles.listContent}
-                />
+                {items.length === 0 ? (
+                    <TouchableOpacity 
+                        style={styles.emptyStateContainer}
+                        onPress={() => navigation.navigate('Profile')}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={[styles.emptyStateTitle, { fontSize: 18 * rScale }]}>Fridge is empty! 🥛</Text>
+                        {(!reminders?.departureLocation || !reminders?.storeLocation) && (
+                            <Text style={[styles.emptyStateSubtitle, { fontSize: 13 * rScale }]}>
+                                Set a reminder in your Profile to pick groceries up on the way.
+                            </Text>
+                        )}
+                    </TouchableOpacity>
+                ) : (
+                    <FlatList
+                        data={items}
+                        keyExtractor={(item) => item.id}
+                        renderItem={({ item }) => (
+                            <GroceryListRow
+                                item={item}
+                                onToggle={() => toggleItem(item.id, item.isDone)}
+                                onPress={() => setEditingItem(item)}
+                                onDelete={() => deleteItem(item.id)}
+                                scale={rScale}
+                                rowHeight={listHeight / 5}
+                            />
+                        )}
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={styles.listContent}
+                        onScroll={(e) => {
+                            const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+                            const maxScroll = contentSize.height - layoutMeasurement.height;
+                            if (maxScroll <= 0) {
+                                setScrollPercent(0);
+                            } else {
+                                const scrollFraction = contentOffset.y / maxScroll;
+                                setScrollPercent(Math.max(0, Math.min(1, scrollFraction)));
+                            }
+                        }}
+                        scrollEventThrottle={16}
+                    />
+                )}
             </View>
+
+            {/* Custom Aesthetic Scrollbar - Visible if more than 5 items */}
+            {items.length > 5 && (
+                <View style={{
+                    position: 'absolute',
+                    left: listLeft + listWidth + (6 * rScale),
+                    top: listTop + (listHeight * 0.05),
+                    height: listHeight * 0.9,
+                    width: 6 * rScale,
+                    backgroundColor: 'rgba(107, 75, 62, 0.05)', // Almost invisible track
+                    borderRadius: 3 * rScale,
+                }}>
+                    {/* Scroll Thumb */}
+                    <View style={{
+                        position: 'absolute',
+                        top: scrollPercent * (listHeight * 0.9 - (listHeight * 0.25)), 
+                        width: '100%',
+                        height: listHeight * 0.25, // Slightly taller thumb
+                        backgroundColor: '#6B4B3E',
+                        borderRadius: 3 * rScale,
+                        opacity: 0.25, // Subtle but clearly a "physical" element
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 1 },
+                        shadowOpacity: 0.1,
+                        shadowRadius: 1,
+                        elevation: 1,
+                    }} />
+                </View>
+            )}
 
             {/* Shared note overlay */}
             <TouchableOpacity
@@ -167,10 +236,10 @@ export const FridgeScreen: React.FC = () => {
                 onPress={() => setWriteNoteVisible(true)}
                 activeOpacity={0.7}
             >
-                <View style={[StyleSheet.absoluteFill, { padding: 10 }]} pointerEvents="none">
+                <View style={[StyleSheet.absoluteFill]} pointerEvents="none">
                     <NoteCanvas
-                        width={noteWidth - 20}
-                        height={noteHeight - 20}
+                        width={noteWidth}
+                        height={noteHeight}
                         elements={memoizedElements}
                         currentTool="pen" // Doesn't matter for readOnly
                         onElementsChange={() => { }}
@@ -270,8 +339,28 @@ const styles = StyleSheet.create({
     noteText: {
         fontSize: 14,
         color: '#6B4B3E',
+        fontFamily: 'Inter-Regular',
         fontStyle: 'italic',
         lineHeight: 20,
+    },
+    emptyStateContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+    },
+    emptyStateTitle: {
+        fontFamily: 'Poppins-Bold',
+        color: '#6B4B3E',
+        textAlign: 'center',
+        marginBottom: 8,
+    },
+    emptyStateSubtitle: {
+        fontFamily: 'Inter-Medium',
+        color: '#6B4B3E',
+        textAlign: 'center',
+        opacity: 0.7,
+        lineHeight: 18,
     },
     buttonContainer: {
         position: 'absolute',
@@ -289,10 +378,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         flexDirection: 'row',
         alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
+        shadowColor: '#6B4B3E',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 16,
         elevation: 5,
     },
     buttonEmoji: {
@@ -302,6 +391,6 @@ const styles = StyleSheet.create({
     buttonText: {
         color: '#FFFFFF',
         fontSize: 16,
-        fontWeight: '600',
+        fontFamily: 'Inter-SemiBold',
     },
 });

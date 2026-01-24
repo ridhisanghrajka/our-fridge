@@ -1,13 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { Asset } from 'expo-asset';
 import * as SplashScreen from 'expo-splash-screen';
+import { 
+  useFonts, 
+  Poppins_600SemiBold, 
+  Poppins_700Bold, 
+  Poppins_800ExtraBold 
+} from '@expo-google-fonts/poppins';
+import { 
+  Inter_400Regular, 
+  Inter_500Medium, 
+  Inter_600SemiBold, 
+  Inter_700Bold, 
+  Inter_800ExtraBold,
+  Inter_900Black 
+} from '@expo-google-fonts/inter';
 import { AppNavigator } from './src/navigation/AppNavigator';
+import { PairingProvider } from './src/context/PairingContext';
+import './src/services/locationService'; // Register geofencing task
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
 export default function App() {
-  const [appIsReady, setAppIsReady] = useState(false);
+  const [assetsReady, setAssetsReady] = useState(false);
+  
+  const [fontsLoaded] = useFonts({
+    'Poppins-SemiBold': Poppins_600SemiBold,
+    'Poppins-Bold': Poppins_700Bold,
+    'Poppins-ExtraBold': Poppins_800ExtraBold,
+    'Inter-Regular': Inter_400Regular,
+    'Inter-Medium': Inter_500Medium,
+    'Inter-SemiBold': Inter_600SemiBold,
+    'Inter-Bold': Inter_700Bold,
+    'Inter-ExtraBold': Inter_800ExtraBold,
+    'Inter-Black': Inter_900Black,
+  });
 
   useEffect(() => {
     async function prepare() {
@@ -29,17 +57,26 @@ export default function App() {
       } catch (e) {
         console.warn(e);
       } finally {
-        setAppIsReady(true);
-        await SplashScreen.hideAsync();
+        setAssetsReady(true);
       }
     }
 
     prepare();
   }, []);
 
-  if (!appIsReady) {
+  useEffect(() => {
+    if (fontsLoaded && assetsReady) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, assetsReady]);
+
+  if (!fontsLoaded || !assetsReady) {
     return null;
   }
 
-  return <AppNavigator />;
+  return (
+    <PairingProvider>
+      <AppNavigator />
+    </PairingProvider>
+  );
 }

@@ -4,14 +4,18 @@ import { Dimensions } from 'react-native';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
-export const FridgeSVG: React.FC = () => {
+interface FridgeSVGProps {
+    scale?: number;
+}
+
+export const FridgeSVG: React.FC<FridgeSVGProps> = ({ scale: manualScale }) => {
     // Original SVG dimensions
     // Original SVG dimensions - Increased width to center the 3D body
     const originalWidth = 1280;
     const originalHeight = 2532;
 
     // Calculate scale to fit screen
-    const scale = Math.min(screenWidth / originalWidth, screenHeight / originalHeight);
+    const scale = manualScale || Math.min(screenWidth / originalWidth, screenHeight / originalHeight);
     const scaledWidth = originalWidth * scale;
     const scaledHeight = originalHeight * scale;
 

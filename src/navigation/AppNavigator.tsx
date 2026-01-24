@@ -1,19 +1,53 @@
 import React from 'react';
+import * as Linking from 'expo-linking';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { FridgeScreen } from '../screens/FridgeScreen';
+import { ActivityScreen } from '../screens/ActivityScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { PairingScreen } from '../screens/PairingScreen';
+import { OnboardingScreen } from '../screens/OnboardingScreen';
+import { NotificationManager } from '../components/NotificationManager';
+import { WidgetSynchronizer } from '../components/WidgetSynchronizer';
 import { usePairing } from '../hooks/usePairing';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
+import { presentPaywall } from '../services/billing';
 
 const Tab = createBottomTabNavigator();
 
-export const AppNavigator: React.FC = () => {
-    const { pairId, loading } = usePairing();
+const linking = {
+    prefixes: [Linking.createURL('/'), 'ourfridge://'],
+    config: {
+        screens: {
+            Fridge: 'fridge',
+            Profile: 'profile',
+        },
+    },
+};
 
-    if (loading) {
+export const AppNavigator: React.FC = () => {
+    const { pairId, userName, loading, userLoading, user, pair, unpair, isOnboarding, logout } = usePairing();
+
+    const handleLeaveFridge = () => {
+        Alert.alert(
+            "Leave Fridge?",
+            "Are you sure? You will lose access to all shared notes and groceries in this fridge.",
+            [
+                { text: "Cancel", style: "cancel" },
+                { 
+                    text: "Leave", 
+                    style: "destructive",
+                    onPress: async () => {
+                        await unpair();
+                    }
+                }
+            ]
+        );
+    };
+
+    if (loading || userLoading) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#6B4B3E" />
@@ -21,12 +55,46 @@ export const AppNavigator: React.FC = () => {
         );
     }
 
-    if (!pairId) {
-        return <PairingScreen />;
+    // Mandatory Auth Gate: If no user is signed in, show onboarding
+    if (!user || !userName || !pairId || isOnboarding) {
+        return <OnboardingScreen />;
+    }
+
+    // Hard Gate Logic: Check if trial is expired AND fridge is not premium
+    const trialExpired = user?.trialStartedAt ? (Date.now() - user.trialStartedAt.getTime()) > 7 * 24 * 60 * 60 * 1000 : false;
+    const isPremium = pair?.isPremiumEnabled || user?.isPremium;
+
+    if (trialExpired && !isPremium) {
+        return (
+            <LinearGradient colors={['#DDF3FF', '#FFF6EA']} style={styles.gateContainer}>
+                <View style={styles.gateContent}>
+                    <Text style={styles.gateEmoji}>🧊</Text>
+                    <Text style={styles.gateTitle}>Fridge Paused</Text>
+                    <Text style={styles.gateSubtitle}>
+                        Your 7-day trial has ended. Subscribe to keep sharing moments with your partner.
+                    </Text>
+                    
+                    <TouchableOpacity 
+                        style={styles.gateButton} 
+                        onPress={() => {
+                            presentPaywall();
+                        }}
+                    >
+                        <Text style={styles.gateButtonText}>View Plans</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.unpairLink} onPress={handleLeaveFridge}>
+                        <Text style={styles.unpairLinkText}>Leave Fridge</Text>
+                    </TouchableOpacity>
+                </View>
+            </LinearGradient>
+        );
     }
 
     return (
-        <NavigationContainer>
+        <NavigationContainer linking={linking}>
+            {userName && <NotificationManager pairId={pairId} userName={userName} />}
+            {pairId && <WidgetSynchronizer />}
             <Tab.Navigator
                 screenOptions={{
                     tabBarStyle: {
@@ -35,11 +103,11 @@ export const AppNavigator: React.FC = () => {
                         backgroundColor: '#F5F5F5', // Neutral light grey
                         borderRadius: 30,
                         borderTopWidth: 0,
-                        elevation: 5,
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 4 },
-                        shadowOpacity: 0.15, // Softer shadow
-                        shadowRadius: 8,
+                        elevation: 8,
+                        shadowColor: '#6B4B3E',
+                        shadowOffset: { width: 0, height: 12 },
+                        shadowOpacity: 0.1, // slightly higher for floating feel
+                        shadowRadius: 24,
                         height: 60,
                         marginHorizontal: 40,
                         paddingBottom: 0,
@@ -51,7 +119,7 @@ export const AppNavigator: React.FC = () => {
                     tabBarShowLabel: true,
                     tabBarLabelStyle: {
                         fontSize: 10,
-                        fontWeight: 'bold',
+                        fontFamily: 'Inter-Bold',
                         paddingBottom: 4,
                     },
                     tabBarItemStyle: {
@@ -67,7 +135,7 @@ export const AppNavigator: React.FC = () => {
                     },
                     headerTitleStyle: {
                         fontSize: 20,
-                        fontWeight: 'bold',
+                        fontFamily: 'Poppins-Bold',
                         color: '#3D2E25',
                     },
                 }}
@@ -79,6 +147,18 @@ export const AppNavigator: React.FC = () => {
                         tabBarIcon: ({ color }) => (
                             <Svg width={24} height={24} viewBox="0 0 24 24">
                                 <Path fill={color} d="M17 2H7c-1.1 0-2 .9-2 2v15a2 2 0 0 0 2 2v1h2v-1h6v1h2v-1c1.11 0 2-.89 2-2V4a2 2 0 0 0-2-2m-7 13H8v-5h2z" />
+                            </Svg>
+                        ),
+                        headerShown: false,
+                    }}
+                />
+                <Tab.Screen
+                    name="Activity"
+                    component={ActivityScreen}
+                    options={{
+                        tabBarIcon: ({ color }) => (
+                            <Svg width={24} height={24} viewBox="0 0 24 24">
+                                <Path fill={color} d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" />
                             </Svg>
                         ),
                         headerShown: false,
@@ -107,5 +187,66 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: '#DDF3FF',
+    },
+    gateContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        padding: 40,
+    },
+    gateContent: {
+        alignItems: 'center',
+        backgroundColor: '#FFF7EE',
+        borderRadius: 32,
+        padding: 32,
+        borderWidth: 2,
+        borderColor: '#6B4B3E',
+        shadowColor: '#6B4B3E',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.08,
+        shadowRadius: 24,
+        elevation: 10,
+    },
+    gateEmoji: {
+        fontSize: 64,
+        marginBottom: 20,
+    },
+    gateTitle: {
+        fontSize: 34, // Increased to match editorial headers
+        fontFamily: 'Poppins-Bold',
+        color: '#6B4B3E',
+        marginBottom: 12,
+        textAlign: 'center',
+    },
+    gateSubtitle: {
+        fontSize: 14, // Reduced from 16
+        fontFamily: 'Inter-Regular',
+        color: '#6B4B3E',
+        opacity: 0.6,
+        textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: 32,
+    },
+    gateButton: {
+        backgroundColor: '#6B4B3E',
+        width: '100%',
+        paddingVertical: 16,
+        borderRadius: 12,
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    gateButtonText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontFamily: 'Inter-SemiBold',
+    },
+    unpairLink: {
+        padding: 10,
+    },
+    unpairLinkText: {
+        color: '#6B4B3E',
+        opacity: 0.6,
+        textDecorationLine: 'underline',
+        fontFamily: 'Inter-Regular',
+        fontSize: 14,
     },
 });

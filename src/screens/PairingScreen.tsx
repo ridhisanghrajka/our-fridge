@@ -18,6 +18,8 @@ export const PairingScreen: React.FC = () => {
         setIsCreating(true);
         try {
             console.log('Creating new pair for:', name.trim());
+            // You can optionally allow user to name the fridge here, 
+            // for now we'll use the default logic in pairing service
             await createNewPair(name.trim());
             console.log('Pair created successfully!');
         } catch (err: any) {
@@ -130,14 +132,16 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     title: {
-        fontSize: 48,
-        fontWeight: 'bold',
+        fontSize: 34,
+        fontFamily: 'Poppins-Bold',
         color: '#3D2E25',
         marginBottom: 8,
     },
     subtitle: {
-        fontSize: 18,
+        fontSize: 14,
+        fontFamily: 'Inter-Regular',
         color: '#6B4B3E',
+        opacity: 0.6,
         marginBottom: 40,
     },
     card: {
@@ -146,15 +150,17 @@ const styles = StyleSheet.create({
         padding: 24,
         width: '100%',
         maxWidth: 400,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
+        shadowColor: '#6B4B3E',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.08,
+        shadowRadius: 24,
         elevation: 5,
     },
     label: {
-        fontSize: 16,
-        fontWeight: '600',
+        fontSize: 12,
+        fontFamily: 'Inter-Bold',
+        textTransform: 'uppercase',
+        letterSpacing: 1.2,
         color: '#3D2E25',
         marginBottom: 8,
     },
@@ -163,6 +169,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         padding: 16,
         fontSize: 16,
+        fontFamily: 'Inter-Regular',
         color: '#3D2E25',
         borderWidth: 2,
         borderColor: '#E3D2C3',
@@ -188,7 +195,7 @@ const styles = StyleSheet.create({
     buttonText: {
         color: '#FFFFFF',
         fontSize: 16,
-        fontWeight: '600',
+        fontFamily: 'Inter-SemiBold',
     },
     orContainer: {
         flexDirection: 'row',
@@ -202,7 +209,9 @@ const styles = StyleSheet.create({
     },
     orText: {
         marginHorizontal: 12,
-        color: '#A89B8F',
+        color: '#6B4B3E',
+        opacity: 0.6,
         fontSize: 14,
+        fontFamily: 'Inter-Medium',
     },
 });

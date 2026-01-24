@@ -62,9 +62,8 @@ export const NotepadSVG: React.FC<NotepadSVGProps> = ({ width = 1000, height = 1
                         y="95"
                         fill="#6B4B3E"
                         fontSize="42"
-                        fontWeight="600"
+                        fontFamily="Poppins-SemiBold"
                         textAnchor="middle"
-                        fontStyle="italic"
                     >
                         {title}
                     </Text>
@@ -79,13 +78,7 @@ export const NotepadSVG: React.FC<NotepadSVGProps> = ({ width = 1000, height = 1
             {/* Notes area */}
             <G transform="translate(100 1030)">
                 <Rect x="0" y="0" width="800" height="480" rx="26"
-                    fill="none" stroke="#C9B2A3" strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" strokeDasharray="14 18" opacity={0.75} />
-                <Path d="M150 70 Q350 40 550 70 T750 70"
-                    fill="none" stroke="#DCC8B9" strokeWidth={16}
-                    opacity={0.12} strokeLinecap="round" />
-                <Path d="M170 150 Q370 120 570 150 T790 150"
-                    fill="none" stroke="#DCC8B9" strokeWidth={14}
-                    opacity={0.10} strokeLinecap="round" />
+                    fill="none" stroke="#C9B2A3" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" strokeDasharray="14 18" opacity={0.75} />
             </G>
         </Svg>
     );

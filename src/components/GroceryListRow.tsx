@@ -50,10 +50,10 @@ export const GroceryListRow: React.FC<GroceryListRowProps> = ({ item, onToggle, 
             </TouchableOpacity>
 
             {/* Content with Underline */}
-            <View style={[styles.contentContainer, { borderBottomWidth: 2 * scale, paddingBottom: 8 * scale }]}>
+            <View style={[styles.contentContainer, { borderBottomWidth: 2 * scale, paddingTop: 4 * scale, paddingBottom: 4 * scale }]}>
                 {item.emoji && <Text style={[styles.emoji, { fontSize: 20 * scale, marginRight: 8 * scale }]}>{item.emoji}</Text>}
 
-                <Text style={[styles.name, { fontSize: 18 * scale }, item.isDone && styles.nameDone]} numberOfLines={1}>
+                <Text style={[styles.name, { fontSize: 18 * scale, lineHeight: 22 * scale }, item.isDone && styles.nameDone]} numberOfLines={1}>
                     {item.name}
                 </Text>
 
@@ -139,19 +139,20 @@ const styles = StyleSheet.create({
     },
     name: {
         flex: 1,
-        fontSize: 18, // Slightly larger handwritten feel?
+        fontSize: 16, // Reduced from 18 for premium look
         color: '#5D4037', // Darker brown text
-        fontWeight: '500',
+        fontFamily: 'Inter-Medium',
     },
     nameDone: {
         opacity: 0.4,
         textDecorationLine: 'line-through',
     },
     quantity: {
-        fontSize: 16,
+        fontSize: 14, // Reduced from 16
         color: '#8D6E63',
         marginLeft: 8,
-        fontWeight: '500',
+        fontFamily: 'Inter-Medium',
+        fontVariant: ['tabular-nums'],
     },
     quantityDone: {
         opacity: 0.4,
@@ -168,7 +169,7 @@ const styles = StyleSheet.create({
     },
     crossText: {
         color: '#6B4B3E',
-        fontWeight: '900',
+        fontFamily: 'Inter-Black',
         textAlign: 'center',
         marginTop: -1, // Visual center tweak
     },
