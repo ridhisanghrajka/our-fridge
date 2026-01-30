@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -19,7 +19,13 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import { usePairing } from '../hooks/usePairing';
 import { useNotificationPrefs } from '../hooks/useNotificationPrefs';
 import { LocationPickerModal } from './LocationPickerModal';
-import { requestLocationPermissions, registerGeofences } from '../services/locationService';
+import { 
+    registerGeofences,
+    checkLocationPermissions,
+    stopGeofencing
+} from '../services/locationService';
+import * as Location from 'expo-location';
+import { AppState, AppStateStatus } from 'react-native';
 
 // Icons
 const CloseIcon = ({ size = 24, color = "#6B4B3E" }) => (
@@ -27,6 +33,17 @@ const CloseIcon = ({ size = 24, color = "#6B4B3E" }) => (
         <Path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
 );
+
+const StatusDot = ({ status }: { status: 'active' | 'incomplete' | 'paused' | 'not_set' }) => {
+    const color = status === 'active' ? '#4CAF50' : status === 'incomplete' ? '#F44336' : '#9E9E9E';
+    return (
+        <View style={[
+            styles.statusDot, 
+            { backgroundColor: color },
+            status === 'incomplete' && styles.incompleteGlow
+        ]} />
+    );
+};
 
 const ChevronRightIcon = ({ size = 20, color = "#6B4B3E" }) => (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -94,7 +111,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
         logout 
     } = usePairing();
     
-    const { prefs, reminders, updatePrefs, updateLocationReminders } = useNotificationPrefs(pairId, userName);
+    const { prefs, reminders, updatePrefs, saveAndRegisterLocation } = useNotificationPrefs(pairId, user?.uid || null);
 
     const [isEditingUser, setIsEditingUser] = useState(false);
     const [tempUserName, setTempUserName] = useState(userName || '');
@@ -103,38 +120,57 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
     const [tempFridgeName, setTempFridgeName] = useState(pair?.fridgeName || '');
 
     const [locationPickerType, setLocationPickerType] = useState<'departure' | 'store' | null>(null);
+    const [permissions, setPermissions] = useState<{ foreground: boolean; background: boolean; notifications: boolean }>({
+        foreground: false,
+        background: false,
+        notifications: false
+    });
+
+    // Auto-detect permission changes
+    useEffect(() => {
+        const checkPerms = async () => {
+            const perms = await checkLocationPermissions();
+            setPermissions(perms);
+        };
+
+        checkPerms();
+
+        const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+            if (nextAppState === 'active') {
+                checkPerms();
+            }
+        });
+
+        return () => subscription.remove();
+    }, []);
+
+    const getReminderStatus = (location: any) => {
+        if (!location) return 'not_set';
+        if (location.isEnabled === false) return 'paused';
+        // Red dot if background location OR notifications are missing
+        if (!permissions.background || !permissions.notifications) return 'incomplete';
+        return 'active';
+    };
 
     const handleOpenLocationPicker = (type: 'departure' | 'store') => {
         setLocationPickerType(type);
     };
 
-    const handleSaveLocation = async (latitude: number, longitude: number, address: string, name: string) => {
+    const handleToggleReminder = async (type: 'departure' | 'store', currentVal: boolean) => {
+        if (!pairId || !userName) return;
+        
+        const location = type === 'departure' ? reminders?.departureLocation : reminders?.storeLocation;
+        if (!location) return;
+
+        const updatedLocation = { ...location, isEnabled: !currentVal };
+        await saveAndRegisterLocation(type, updatedLocation);
+    };
+
+    const handleSaveLocation = async (latitude: number, longitude: number, address: string, name: string, isEnabled: boolean = true) => {
         if (!pairId || !userName || !locationPickerType) return;
 
-        // Request permissions if needed
-        const hasPermission = await requestLocationPermissions();
-        if (!hasPermission) {
-            Alert.alert(
-                "Permission Required",
-                "To use location reminders, please enable 'Always' location access in your phone settings.",
-                [{ text: "OK" }]
-            );
-            return;
-        }
-
-        const locationData = { latitude, longitude, address, label: name };
-        await updateLocationReminders(locationPickerType, locationData);
-
-        // Update geofencing
-        const updatedReminders = { ...reminders };
-        if (locationPickerType === 'departure') {
-            updatedReminders.departureLocation = locationData;
-        } else {
-            updatedReminders.storeLocation = locationData;
-        }
-        
-        await registerGeofences(updatedReminders.departureLocation, updatedReminders.storeLocation);
-        
+        const locationData = { latitude, longitude, address, label: name, isEnabled };
+        await saveAndRegisterLocation(locationPickerType!, locationData);
         setLocationPickerType(null);
     };
 
@@ -337,10 +373,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
                                     <HomeIcon />
                                 </View>
                                 <View style={styles.reminderContent}>
-                                    <Text style={styles.rowLabelBold}>Remind me when I leave a location</Text>
-                                    <Text style={styles.rowSublabel} numberOfLines={1}>
-                                        {reminders?.departureLocation?.label || reminders?.departureLocation?.address || "Tap to set work/gym/etc."}
-                                    </Text>
+                                    <Text style={styles.rowLabelBold}>Leave a location</Text>
+                                    <View style={styles.statusContainer}>
+                                        <StatusDot status={getReminderStatus(reminders?.departureLocation)} />
+                                        <Text style={styles.rowSublabel} numberOfLines={1}>
+                                            {reminders?.departureLocation 
+                                                ? (getReminderStatus(reminders.departureLocation) === 'incomplete' 
+                                                    ? `${reminders.departureLocation.label} • Setup Incomplete`
+                                                    : getReminderStatus(reminders.departureLocation) === 'paused'
+                                                        ? `${reminders.departureLocation.label} • Paused`
+                                                        : reminders.departureLocation.label)
+                                                : "Not set"}
+                                        </Text>
+                                    </View>
                                 </View>
                             </View>
                             <ChevronRightIcon />
@@ -353,10 +398,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
                                     <MapPinIcon />
                                 </View>
                                 <View style={styles.reminderContent}>
-                                    <Text style={styles.rowLabelBold}>Remind me when I am near the store</Text>
-                                    <Text style={styles.rowSublabel} numberOfLines={1}>
-                                        {reminders?.storeLocation?.label || reminders?.storeLocation?.address || "Tap to set your favorite store"}
-                                    </Text>
+                                    <Text style={styles.rowLabelBold}>Near the store</Text>
+                                    <View style={styles.statusContainer}>
+                                        <StatusDot status={getReminderStatus(reminders?.storeLocation)} />
+                                        <Text style={styles.rowSublabel} numberOfLines={1}>
+                                            {reminders?.storeLocation 
+                                                ? (getReminderStatus(reminders.storeLocation) === 'incomplete' 
+                                                    ? `${reminders.storeLocation.label} • Setup Incomplete`
+                                                    : getReminderStatus(reminders.storeLocation) === 'paused'
+                                                        ? `${reminders.storeLocation.label} • Paused`
+                                                        : reminders.storeLocation.label)
+                                                : "Not set"}
+                                        </Text>
+                                    </View>
                                 </View>
                             </View>
                             <ChevronRightIcon />
@@ -533,6 +587,25 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
+        flex: 1,
+    },
+    statusContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginTop: 2,
+    },
+    statusDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+    },
+    incompleteGlow: {
+        shadowColor: '#F44336',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 4,
+        elevation: 3,
     },
     bellIconContainer: {
         width: 36,

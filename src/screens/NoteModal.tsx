@@ -68,10 +68,6 @@ export const NoteModal: React.FC<NoteModalProps> = ({
         setElements((prev) => prev.slice(0, -1));
     };
 
-    const handleProSelect = async () => {
-        await presentPaywall();
-    };
-
     const modalWidth = screenWidth * 0.94;
     const modalHeight = screenHeight * 0.75;
 
@@ -166,7 +162,6 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                         visible={currentTool === 'magnet'}
                         selectedMagnetType={selectedMagnetType}
                         onSelectMagnet={setSelectedMagnetType}
-                        onProSelect={handleProSelect}
                     />
 
                     {/* Canvas Area */}

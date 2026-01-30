@@ -20,12 +20,14 @@ export interface PairUser {
       longitude: number;
       label?: string;
       address: string;
+      isEnabled?: boolean;
     };
     storeLocation?: {
       latitude: number;
       longitude: number;
       address: string;
       label?: string;
+      isEnabled?: boolean;
     };
   };
 }

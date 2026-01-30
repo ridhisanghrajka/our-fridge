@@ -65,6 +65,11 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
     const editingIdRef = useRef<string | null>(null);
     const selectedMagnetTypeRef = useRef(selectedMagnetType);
 
+    // Tracking for smoother drawing
+    const activeTouchId = useRef<number | null>(null);
+    const lastPoint = useRef<{x: number, y: number} | null>(null);
+    const activePathRef = useRef<any>(null);
+
     // Transformation refs
     const isDraggingRef = useRef(false);
     const isScalingRef = useRef(false);
@@ -233,8 +238,12 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
                 return true;
             },
             onPanResponderGrant: (evt) => {
-                const { locationX, locationY, touches } = evt.nativeEvent;
+                const { locationX, locationY, touches, identifier } = evt.nativeEvent;
                 const v = toVirtual(locationX, locationY);
+
+                // Lock the touch ID to prevent palm interference or multiple finger glitching
+                activeTouchId.current = identifier;
+                lastPoint.current = v;
 
                 initialPosRef.current = v;
                 isDraggingRef.current = false;
@@ -257,7 +266,7 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
 
                 // 1. Tool Specific Start
                 if (toolRef.current === 'pen') {
-                    const path = `M ${v.x.toFixed(1)} ${v.y.toFixed(1)} L ${v.x.toFixed(1)} ${v.y.toFixed(1)}`;
+                    const path = `M ${v.x.toFixed(1)} ${v.y.toFixed(1)}`;
                     currentPathRef.current = path;
                     setCurrentPath(path);
                     return;
@@ -324,7 +333,10 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
             },
             onPanResponderMove: (evt) => {
                 if (readOnly || isTypingRef.current) return;
-                const { touches } = evt.nativeEvent;
+                const { touches, locationX, locationY, identifier } = evt.nativeEvent;
+
+                // Only respond to the finger that started the interaction
+                if (identifier !== activeTouchId.current) return;
 
                 if (isPinchingRef.current && touches.length === 2 && initialElementRef.current) {
                     hasMovedRef.current = true;
@@ -339,7 +351,6 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
                     return;
                 }
 
-                const { locationX, locationY } = evt.nativeEvent;
                 const v = toVirtual(locationX, locationY);
                 const dx = v.x - initialPosRef.current.x;
                 const dy = v.y - initialPosRef.current.y;
@@ -349,9 +360,18 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
                 }
 
                 if (toolRef.current === 'pen') {
+                    // Distance filter to reduce jitter and coordinate jumping
+                    if (lastPoint.current) {
+                        const dist = Math.sqrt(Math.pow(v.x - lastPoint.current.x, 2) + Math.pow(v.y - lastPoint.current.y, 2));
+                        if (dist < 3) return; // Only add points if moved at least 3 virtual pixels
+                    }
+
                     const newPath = `${currentPathRef.current} L ${v.x.toFixed(1)} ${v.y.toFixed(1)}`;
                     currentPathRef.current = newPath;
-                    setCurrentPath(newPath);
+                    lastPoint.current = v;
+                    
+                    // Use setNativeProps for direct SVG update without full React re-render
+                    activePathRef.current?.setNativeProps({ d: newPath });
                 } else if (toolRef.current === 'eraser') {
                     const hit = elementsRef.current.find(el => isHit(el, v, 30));
                     if (hit) {
@@ -456,6 +476,8 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
                 isPinchingRef.current = false;
                 initialElementRef.current = null;
                 wasDeselectedRef.current = false;
+                activeTouchId.current = null;
+                lastPoint.current = null;
             },
         })
     ).current;
@@ -571,7 +593,7 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
                         return null;
                     })}
                     {currentPath ? (
-                        <Path d={currentPath} stroke={strokeColor} strokeWidth={strokeWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                        <Path ref={activePathRef} d={currentPath} stroke={strokeColor} strokeWidth={strokeWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" />
                     ) : null}
                 </Svg>
             </View>

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, FlatList } from 'react-native';
+import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, FlatList, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -59,6 +59,38 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, on
             setImage(result.assets[0].uri);
             setImagePath(null); // New image picked, clear old storage path
         }
+    };
+
+    const takePhoto = async () => {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Permission Denied', 'We need camera permissions to take a photo.');
+            return;
+        }
+
+        const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.5,
+        });
+
+        if (!result.canceled) {
+            setImage(result.assets[0].uri);
+            setImagePath(null);
+        }
+    };
+
+    const handleImagePress = () => {
+        Alert.alert(
+            'Add Photo',
+            'Would you like to take a photo or choose from your library?',
+            [
+                { text: 'Take Photo', onPress: takePhoto },
+                { text: 'Choose from Library', onPress: pickImage },
+                { text: 'Cancel', style: 'cancel' },
+            ]
+        );
     };
 
     const handleSave = async () => {
@@ -157,7 +189,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, on
                     />
 
                     <Text style={styles.label}>Image (optional)</Text>
-                    <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
+                    <TouchableOpacity style={styles.imagePicker} onPress={handleImagePress}>
                         {image ? (
                             <Image source={{ uri: image }} style={styles.previewImage} />
                         ) : (

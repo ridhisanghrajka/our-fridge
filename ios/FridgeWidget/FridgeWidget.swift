@@ -27,7 +27,7 @@ struct Provider: TimelineProvider {
     }
 
     private func readWidgetData() -> SimpleEntry {
-        let sharedDefaults = UserDefaults(suiteName: "group.com.ridhisanghrajka.ourfridge")
+        let sharedDefaults = UserDefaults(suiteName: "group.ridhisanghrajka.ourfridge")
         let date = Date()
         
         // Read the JSON string we saved in React Native

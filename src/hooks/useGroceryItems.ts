@@ -4,7 +4,7 @@ import { ref, deleteObject, uploadBytes, getDownloadURL } from 'firebase/storage
 import { db, storage } from '../../firebase.config';
 import { GroceryItem } from '../types/GroceryItem';
 import { User } from '../types/User';
-import { upsertMemoryItem } from '../services/groceryMemory';
+import { upsertMemoryItem, deleteMemoryItem } from '../services/groceryMemory';
 import { logActivity } from '../services/activity';
 
 export const useGroceryItems = (pairId: string | null, user: User | null) => {
@@ -64,6 +64,7 @@ export const useGroceryItems = (pairId: string | null, user: User | null) => {
 
         const newItemData: any = {
             pairId,
+            userId: user?.uid || '',
             name,
             emoji: emoji || '',
             quantity: quantity || '',
@@ -135,10 +136,43 @@ export const useGroceryItems = (pairId: string | null, user: User | null) => {
         const currentItem = items.find(i => i.id === itemId);
         const nameForLog = updates.name || currentItem?.name || 'Unknown Item';
 
+        // Filter out undefined values for Firestore
+        const cleanUpdates = Object.fromEntries(
+            Object.entries(updates).filter(([_, v]) => v !== undefined)
+        );
+
+        // Optimistic UI Update: Update the local state immediately
+        if (currentItem) {
+            setItems(prevItems => 
+                prevItems.map(item => 
+                    item.id === itemId ? { ...item, ...cleanUpdates, updatedAt: new Date() } : item
+                )
+            );
+        }
+
         await updateDoc(itemRef, {
-            ...updates,
+            ...cleanUpdates,
             updatedAt: Timestamp.now(),
         });
+
+        // Update implicit memory with the new details
+        if (pairId) {
+            // If the name changed, we should remove the old memory entry
+            // so it doesn't clutter the suggestions with the "old" name.
+            const nameChanged = updates.name && currentItem?.name && updates.name !== currentItem.name;
+            
+            if (nameChanged && currentItem?.name) {
+                deleteMemoryItem(pairId, currentItem.name).catch(() => {});
+            }
+
+            upsertMemoryItem(
+                pairId,
+                updates.name || currentItem?.name || '',
+                updates.quantity || currentItem?.quantity,
+                updates.imageUrl || currentItem?.imageUrl,
+                updates.imagePath || currentItem?.imagePath
+            ).catch(err => console.error("Error updating memory on update:", err));
+        }
 
         // Log activity
         if (pairId && user) {

@@ -17,7 +17,7 @@ Notifications.setNotificationHandler({
 /**
  * Request permissions and get the Expo push token
  */
-export async function registerForPushNotificationsAsync() {
+export async function registerForPushNotificationsAsync(requestIfNeeded: boolean = true) {
   let token;
 
   if (Platform.OS === 'android') {
@@ -32,12 +32,12 @@ export async function registerForPushNotificationsAsync() {
   if (Device.isDevice) {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
-    if (existingStatus !== 'granted') {
+    if (existingStatus !== 'granted' && requestIfNeeded) {
       const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
     }
     if (finalStatus !== 'granted') {
-      console.log('Failed to get push token for push notification!');
+      console.log('Push notification permission not granted');
       return;
     }
     
@@ -63,10 +63,10 @@ export async function registerForPushNotificationsAsync() {
 /**
  * Update user metadata (token, platform, lastSeenAt) in Firestore
  */
-export const updateUserMetadata = async (pairId: string, userName: string, token?: string) => {
-  if (!pairId || !userName) return;
+export const updateUserMetadata = async (pairId: string, userId: string, token?: string) => {
+  if (!pairId || !userId) return;
 
-  const userRef = doc(db, 'pairs', pairId, 'users', userName);
+  const userRef = doc(db, 'pairs', pairId, 'users', userId);
   const userSnap = await getDoc(userRef);
 
   const metadata: any = {
@@ -101,19 +101,19 @@ export const updateUserMetadata = async (pairId: string, userName: string, token
  */
 export const updateNotificationPrefs = async (
   pairId: string, 
-  userName: string, 
+  userId: string, 
   prefs: { notifyNotes?: boolean; notifyFridgeUpdates?: boolean }
 ) => {
-  if (!pairId || !userName) return;
+  if (!pairId || !userId) return;
 
-  const userRef = doc(db, 'pairs', pairId, 'users', userName);
+  const userRef = doc(db, 'pairs', pairId, 'users', userId);
   
   const updates: any = {};
   if (prefs.notifyNotes !== undefined) updates['prefs.notifyNotes'] = prefs.notifyNotes;
   if (prefs.notifyFridgeUpdates !== undefined) updates['prefs.notifyFridgeUpdates'] = prefs.notifyFridgeUpdates;
 
   try {
-    await updateDoc(userRef, updates);
+    await setDoc(userRef, updates, { merge: true });
   } catch (error) {
     console.error('Error updating notification preferences:', error);
   }
@@ -124,23 +124,31 @@ export const updateNotificationPrefs = async (
  */
 export const updateLocationReminder = async (
   pairId: string,
-  userName: string,
+  userId: string,
   type: 'departure' | 'store',
-  location: { latitude: number; longitude: number; address: string; label?: string } | null
+  location: { latitude: number; longitude: number; address: string; label?: string; isEnabled?: boolean } | null
 ) => {
-  if (!pairId || !userName) return;
+  if (!pairId || !userId) return;
 
-  const userRef = doc(db, 'pairs', pairId, 'users', userName);
+  const userRef = doc(db, 'pairs', pairId, 'users', userId);
   
-  const updates: any = {};
+  // Use dot notation correctly with updateDoc to update nested fields without overwriting the whole object
+  // or use a structured object with setDoc merge. updateDoc with dot notation is actually preferred 
+  // for nested fields in Firestore if the document exists. 
+  // Given we switched to setDoc merge, we should use nested objects to ensure the structure is correct.
+  
+  const updates: any = {
+    reminders: {}
+  };
+  
   if (type === 'departure') {
-    updates['reminders.departureLocation'] = location;
+    updates.reminders.departureLocation = location;
   } else {
-    updates['reminders.storeLocation'] = location;
+    updates.reminders.storeLocation = location;
   }
 
   try {
-    await updateDoc(userRef, updates);
+    await setDoc(userRef, updates, { merge: true });
   } catch (error) {
     console.error('Error updating location reminder:', error);
   }

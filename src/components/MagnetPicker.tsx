@@ -1,19 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, Image, TouchableOpacity, ScrollView, Text } from 'react-native';
-import { usePairing } from '../hooks/usePairing';
-import Svg, { Path } from 'react-native-svg';
-
-const LockIcon = ({ size = 12, color = "#6B4B3E" }) => (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-        <Path d="M12 17V19M7 10H17C18.1046 10 19 10.8954 19 12V20C19 21.1046 18.1046 22 17 22H7C5.89543 22 5 21.1046 5 20V12C5 10.8954 5.89543 10 7 10ZM12 6C13.1046 6 14 6.89543 14 8V10H10V8C10 6.89543 10.8954 6 12 6Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    </Svg>
-);
 
 interface MagnetPickerProps {
     visible: boolean;
     selectedMagnetType: string;
     onSelectMagnet: (type: string) => void;
-    onProSelect: () => void;
 }
 
 /**
@@ -24,7 +15,6 @@ export const MagnetPicker: React.FC<MagnetPickerProps> = ({
     visible,
     selectedMagnetType,
     onSelectMagnet,
-    onProSelect
 }) => {
     const slideAnim = useRef(new Animated.Value(0)).current;
 
@@ -50,14 +40,12 @@ export const MagnetPicker: React.FC<MagnetPickerProps> = ({
         outputRange: [0, 1],
     });
 
-    const { isPremium } = usePairing();
-
     const magnets = [
-        { id: 'uk', name: 'UK', source: require('../assets/uk_magnet.png'), isPro: false },
-        { id: 'germany', name: 'Germany', source: require('../assets/germany_magnet.png'), isPro: false },
-        { id: 'usa', name: 'USA', source: require('../assets/usa_magnet.png'), isPro: true },
-        { id: 'canada', name: 'Canada', source: require('../assets/canada_magnet.png'), isPro: true },
-        { id: 'australia', name: 'Australia', source: require('../assets/australia_magnet.png'), isPro: true },
+        { id: 'uk', name: 'UK', source: require('../assets/uk_magnet.png') },
+        { id: 'germany', name: 'Germany', source: require('../assets/germany_magnet.png') },
+        { id: 'usa', name: 'USA', source: require('../assets/usa_magnet.png') },
+        { id: 'canada', name: 'Canada', source: require('../assets/canada_magnet.png') },
+        { id: 'australia', name: 'Australia', source: require('../assets/australia_magnet.png') },
     ];
 
     return (
@@ -77,17 +65,12 @@ export const MagnetPicker: React.FC<MagnetPickerProps> = ({
             >
                 {magnets.map((magnet) => {
                     const isSelected = selectedMagnetType === magnet.id;
-                    const showLock = magnet.isPro && !isPremium;
                     
                     return (
                         <TouchableOpacity
                             key={magnet.id}
                             onPress={() => {
-                                if (showLock) {
-                                    onProSelect();
-                                } else {
-                                    onSelectMagnet(magnet.id);
-                                }
+                                onSelectMagnet(magnet.id);
                             }}
                             style={[
                                 styles.magnetTile,
@@ -101,11 +84,6 @@ export const MagnetPicker: React.FC<MagnetPickerProps> = ({
                                     style={styles.magnetImage}
                                     resizeMode="contain"
                                 />
-                                {showLock && (
-                                    <View style={styles.lockBadge}>
-                                        <LockIcon />
-                                    </View>
-                                )}
                             </View>
                             <Text style={[styles.magnetLabel, isSelected && styles.magnetLabelSelected]}>
                                 {magnet.name}
@@ -159,16 +137,6 @@ const styles = StyleSheet.create({
     magnetImage: {
         width: '100%',
         height: '100%',
-    },
-    lockBadge: {
-        position: 'absolute',
-        top: 0,
-        right: 0,
-        backgroundColor: '#FFD700',
-        borderRadius: 8,
-        padding: 2,
-        borderWidth: 1,
-        borderColor: '#6B4B3E',
     },
     magnetLabel: {
         fontSize: 10,

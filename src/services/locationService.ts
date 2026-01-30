@@ -61,25 +61,58 @@ TaskManager.defineTask(GEOFENCING_TASK_NAME, async ({ data: { eventType, region 
 });
 
 /**
- * Request necessary permissions for location and background tasks
+ * Request foreground location permissions
  */
-export const requestLocationPermissions = async () => {
-  const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
-  if (foregroundStatus !== 'granted') {
-    return false;
-  }
+export const requestForegroundPermissions = async () => {
+  const { status, canAskAgain } = await Location.requestForegroundPermissionsAsync();
+  return { granted: status === 'granted', canAskAgain };
+};
 
-  const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
-  return backgroundStatus === 'granted';
+/**
+ * Request background location permissions
+ */
+export const requestBackgroundPermissions = async () => {
+  const { status, canAskAgain } = await Location.requestBackgroundPermissionsAsync();
+  return { granted: status === 'granted', canAskAgain };
+};
+
+/**
+ * Check current permission status including notifications
+ */
+export const checkLocationPermissions = async () => {
+  const { status: foregroundStatus } = await Location.getForegroundPermissionsAsync();
+  const { status: backgroundStatus } = await Location.getBackgroundPermissionsAsync();
+  
+  // Check notification status as well
+  const { status: notificationStatus } = await Notifications.getPermissionsAsync();
+  
+  return {
+    foreground: foregroundStatus === 'granted',
+    background: backgroundStatus === 'granted',
+    notifications: notificationStatus === 'granted'
+  };
+};
+
+/**
+ * Stop all geofencing tasks
+ */
+export const stopGeofencing = async () => {
+  const isRegistered = await TaskManager.isTaskRegisteredAsync(GEOFENCING_TASK_NAME);
+  if (isRegistered) {
+    await Location.stopGeofencingAsync(GEOFENCING_TASK_NAME);
+  }
 };
 
 /**
  * Register geofences for departure and store locations
  */
-export const registerGeofences = async (departure?: { latitude: number, longitude: number }, store?: { latitude: number, longitude: number }) => {
+export const registerGeofences = async (
+  departure?: { latitude: number, longitude: number, isEnabled?: boolean }, 
+  store?: { latitude: number, longitude: number, isEnabled?: boolean }
+) => {
   const regions: Location.LocationRegion[] = [];
 
-  if (departure) {
+  if (departure && departure.isEnabled !== false) {
     regions.push({
       identifier: 'departure',
       latitude: departure.latitude,
@@ -90,7 +123,7 @@ export const registerGeofences = async (departure?: { latitude: number, longitud
     });
   }
 
-  if (store) {
+  if (store && store.isEnabled !== false) {
     regions.push({
       identifier: 'store',
       latitude: store.latitude,
@@ -102,15 +135,8 @@ export const registerGeofences = async (departure?: { latitude: number, longitud
   }
 
   if (regions.length > 0) {
-    const isRegistered = await TaskManager.isTaskRegisteredAsync(GEOFENCING_TASK_NAME);
-    if (isRegistered) {
-        // TaskManager.unregisterTaskAsync(GEOFENCING_TASK_NAME); // Optional: Re-registering also works
-    }
     await Location.startGeofencingAsync(GEOFENCING_TASK_NAME, regions);
   } else {
-    const isRegistered = await TaskManager.isTaskRegisteredAsync(GEOFENCING_TASK_NAME);
-    if (isRegistered) {
-      await Location.stopGeofencingAsync(GEOFENCING_TASK_NAME);
-    }
+    await stopGeofencing();
   }
 };

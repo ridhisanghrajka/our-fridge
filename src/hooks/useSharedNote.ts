@@ -3,9 +3,10 @@ import { doc, onSnapshot, setDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../../firebase.config';
 import { SharedNote } from '../types/SharedNote';
 
-export const useSharedNote = (pairId: string | null, userName: string | null) => {
+export const useSharedNote = (pairId: string | null, user: { uid: string, name: string | null } | null) => {
     const [note, setNote] = useState<SharedNote | null>(null);
     const [loading, setLoading] = useState(true);
+    const userName = user?.name || 'User';
 
     useEffect(() => {
         if (!pairId) {
@@ -23,6 +24,7 @@ export const useSharedNote = (pairId: string | null, userName: string | null) =>
                     content: data.content || "[]",
                     updatedAt: data.updatedAt?.toDate() || new Date(),
                     updatedBy: data.updatedBy,
+                    updatedByUid: data.updatedByUid,
                 });
             } else {
                 setNote(null);
@@ -34,7 +36,7 @@ export const useSharedNote = (pairId: string | null, userName: string | null) =>
     }, [pairId]);
 
     const updateNoteData = async (content: string) => {
-        if (!pairId || !userName) return;
+        if (!pairId || !user) return;
 
         const noteRef = doc(db, 'sharedNotes', pairId);
         await setDoc(noteRef, {
@@ -42,6 +44,7 @@ export const useSharedNote = (pairId: string | null, userName: string | null) =>
             content,
             updatedAt: Timestamp.now(),
             updatedBy: userName,
+            updatedByUid: user.uid,
         }, { merge: true });
     };
 

@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Share, Clipboard, Platform, Switch, ActivityIndicator, Alert, Modal, Pressable, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Share, Clipboard, Platform, Switch, ActivityIndicator, Alert, Modal, Pressable } from 'react-native';
+import { Image } from 'expo-image';
 import { usePairing } from '../hooks/usePairing';
 import { useNotificationPrefs } from '../hooks/useNotificationPrefs';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
-import { checkPremiumStatus, presentPaywall } from '../services/billing';
+import { presentPaywall } from '../services/billing';
 import * as ImagePicker from 'expo-image-picker';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../../firebase.config';
 import { SettingsModal } from '../components/SettingsModal';
+import { LocationPickerModal } from '../components/LocationPickerModal';
+import { WidgetInstructionsModal } from '../components/WidgetInstructionsModal';
 
 const CrownIcon = ({ size = 24, color = "#FFD700" }) => (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
@@ -69,23 +72,20 @@ const HomeIcon = ({ size = 24, color = "#E79B74" }) => (
     </Svg>
 );
 
+const ChevronRightIcon = ({ size = 20, color = "#6B4B3E" }) => (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+);
+
 export const ProfileScreen: React.FC = () => {
-    const { pair, pairId, user, userName, updateFridgeName, updateUserName, updateUserPhoto, unpair, logout } = usePairing();
-    const { reminders } = useNotificationPrefs(pairId, userName);
-    const [isPremium, setIsPremium] = useState(false);
-    const [checkingPremium, setCheckingPremium] = useState(true);
+    const { pair, pairId, user, userName, updateFridgeName, updateUserName, updateUserPhoto, unpair, logout, isPremium, refreshPremiumStatus } = usePairing();
+    const { reminders, saveAndRegisterLocation } = useNotificationPrefs(pairId, user?.uid || null);
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [isSettingsVisible, setIsSettingsVisible] = useState(false);
-
-    useEffect(() => {
-        const checkStatus = async () => {
-            const status = await checkPremiumStatus();
-            setIsPremium(status);
-            setCheckingPremium(false);
-        };
-        checkStatus();
-    }, []);
+    const [isWidgetModalVisible, setIsWidgetModalVisible] = useState(false);
+    const [locationPickerType, setLocationPickerType] = useState<'departure' | 'store' | null>(null);
 
     const pickImage = async () => {
         Alert.alert(
@@ -158,7 +158,7 @@ export const ProfileScreen: React.FC = () => {
     const handlePresentPaywall = async () => {
         const purchased = await presentPaywall();
         if (purchased) {
-            setIsPremium(true);
+            await refreshPremiumStatus();
         }
     };
 
@@ -194,6 +194,20 @@ export const ProfileScreen: React.FC = () => {
         }
     };
 
+    const handleSaveLocation = async (latitude: number, longitude: number, address: string, name: string, isEnabled: boolean = true) => {
+        if (!pairId || !user?.uid || !locationPickerType) return;
+        
+        await saveAndRegisterLocation(locationPickerType, {
+            latitude,
+            longitude,
+            address,
+            label: name,
+            isEnabled
+        });
+        
+        setLocationPickerType(null);
+    };
+
     const getFridgeNameDisplay = () => {
         if (pair?.fridgeName) return pair.fridgeName;
         if (pair && user) {
@@ -204,6 +218,25 @@ export const ProfileScreen: React.FC = () => {
             }
         }
         return `${userName || 'User'}'s Fridge`;
+    };
+
+    const StatusDot = ({ status }: { status: 'active' | 'incomplete' | 'paused' | 'not_set' }) => {
+        const color = status === 'active' ? '#4CAF50' : status === 'incomplete' ? '#F44336' : '#9E9E9E';
+        return (
+            <View style={[
+                styles.statusDot, 
+                { backgroundColor: color },
+                status === 'incomplete' && styles.incompleteGlow
+            ]} />
+        );
+    };
+
+    const getReminderStatus = (location: any) => {
+        if (!location) return 'not_set';
+        if (location.isEnabled === false) return 'paused';
+        // We don't have permissions state here yet, but we can assume active if enabled for now
+        // or better, just show the label. The user specifically asked to match the UI.
+        return 'active';
     };
 
     return (
@@ -247,7 +280,12 @@ export const ProfileScreen: React.FC = () => {
                                 <View key={uid} style={styles.memberAvatarContainer}>
                                     <View style={[styles.avatarCircleSmall, { backgroundColor: isUser ? '#6B4B3E' : '#E79B74' }]}>
                                         {photoURL ? (
-                                            <Image source={{ uri: photoURL }} style={styles.avatarImage} />
+                                            <Image 
+                                                source={{ uri: photoURL }} 
+                                                style={styles.avatarImage}
+                                                contentFit="cover"
+                                                cachePolicy="disk"
+                                            />
                                         ) : (
                                             <Svg width={40} height={40} viewBox="0 0 24 24">
                                                 <Path fill="#FFFFFF" d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4s-4 1.79-4 4s1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
@@ -314,35 +352,49 @@ export const ProfileScreen: React.FC = () => {
                 )}
 
                 <Text style={styles.sectionTitle}>Smart Reminders</Text>
-                <TouchableOpacity 
-                    style={styles.remindersCard}
-                    onPress={() => setIsSettingsVisible(true)}
-                    activeOpacity={0.8}
-                >
-                    <View style={styles.reminderRow}>
+                <View style={styles.remindersCard}>
+                    {/* Leave Location Reminder */}
+                    <TouchableOpacity style={styles.reminderRow} onPress={() => setLocationPickerType('departure')}>
                         <View style={styles.reminderIconContainer}>
                             <HomeIcon size={20} />
                         </View>
-                        <View style={styles.reminderTextContainer}>
+                        <View style={styles.reminderContent}>
                             <Text style={styles.reminderTitle}>Leave a location</Text>
-                            <Text style={styles.reminderStatus}>
-                                {reminders?.departureLocation ? `Active: ${reminders.departureLocation.label || reminders.departureLocation.address}` : "Not set up"}
-                            </Text>
+                            <View style={styles.statusContainer}>
+                                <StatusDot status={getReminderStatus(reminders?.departureLocation)} />
+                                <Text style={styles.reminderStatus} numberOfLines={1}>
+                                    {reminders?.departureLocation 
+                                        ? (getReminderStatus(reminders.departureLocation) === 'paused'
+                                            ? `${reminders.departureLocation.label} • Paused`
+                                            : reminders.departureLocation.label)
+                                        : "Not set"}
+                                </Text>
+                            </View>
                         </View>
-                    </View>
+                    </TouchableOpacity>
+
                     <View style={styles.reminderDivider} />
-                    <View style={styles.reminderRow}>
+
+                    {/* Near Store Reminder */}
+                    <TouchableOpacity style={styles.reminderRow} onPress={() => setLocationPickerType('store')}>
                         <View style={styles.reminderIconContainer}>
                             <MapPinIcon size={20} />
                         </View>
-                        <View style={styles.reminderTextContainer}>
+                        <View style={styles.reminderContent}>
                             <Text style={styles.reminderTitle}>Near the store</Text>
-                            <Text style={styles.reminderStatus}>
-                                {reminders?.storeLocation ? `Active: ${reminders.storeLocation.label || reminders.storeLocation.address}` : "Not set up"}
-                            </Text>
+                            <View style={styles.statusContainer}>
+                                <StatusDot status={getReminderStatus(reminders?.storeLocation)} />
+                                <Text style={styles.reminderStatus} numberOfLines={1}>
+                                    {reminders?.storeLocation 
+                                        ? (getReminderStatus(reminders.storeLocation) === 'paused'
+                                            ? `${reminders.storeLocation.label} • Paused`
+                                            : reminders.storeLocation.label)
+                                        : "Not set"}
+                                </Text>
+                            </View>
                         </View>
-                    </View>
-                </TouchableOpacity>
+                    </TouchableOpacity>
+                </View>
 
                 <Text style={styles.sectionTitle}>Fridge Moments</Text>
                 <View style={styles.datesCard}>
@@ -361,11 +413,21 @@ export const ProfileScreen: React.FC = () => {
                     )}
                 </View>
 
+                <Text style={styles.sectionTitle}>Widgets</Text>
+                <View style={styles.widgetsCard}>
+                    <TouchableOpacity 
+                        style={styles.widgetButton} 
+                        onPress={() => setIsWidgetModalVisible(true)}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={styles.widgetButtonText}>Home screen widgets</Text>
+                        <ChevronRightIcon size={20} color="#6B4B3E" />
+                    </TouchableOpacity>
+                </View>
+
                 <Text style={styles.sectionTitle}>Subscription</Text>
                 <View style={styles.proCard}>
-                    {checkingPremium ? (
-                        <ActivityIndicator color="#6B4B3E" />
-                    ) : isPremium ? (
+                    {isPremium ? (
                         <View style={styles.proStatusRow}>
                             <CrownIcon size={32} />
                             <View style={styles.proTextContainer}>
@@ -377,7 +439,7 @@ export const ProfileScreen: React.FC = () => {
                         <View style={styles.proStatusRow}>
                             <View style={styles.proTextContainer}>
                                 <Text style={styles.proTitle}>Get Our Fridge Pro</Text>
-                                <Text style={styles.proSubtitle}>Unlock all magnets and special features</Text>
+                                <Text style={styles.proSubtitle}>Unlock the full Our Fridge experience</Text>
                             </View>
                             <TouchableOpacity style={styles.proButton} onPress={handlePresentPaywall}>
                                 <Text style={styles.proButtonText}>Go Pro</Text>
@@ -436,6 +498,20 @@ export const ProfileScreen: React.FC = () => {
             <SettingsModal 
                 visible={isSettingsVisible} 
                 onClose={() => setIsSettingsVisible(false)} 
+            />
+
+            <WidgetInstructionsModal
+                visible={isWidgetModalVisible}
+                onClose={() => setIsWidgetModalVisible(false)}
+            />
+
+            <LocationPickerModal
+                visible={locationPickerType !== null}
+                onClose={() => setLocationPickerType(null)}
+                onSave={handleSaveLocation}
+                title={locationPickerType === 'departure' ? 'Set Departure Location' : 'Set Store Location'}
+                placeholder={locationPickerType === 'departure' ? 'e.g. Work, Gym, Office' : 'e.g. Tesco, Whole Foods, Walmart...'}
+                initialLocation={locationPickerType === 'departure' ? reminders?.departureLocation : reminders?.storeLocation}
             />
         </LinearGradient>
     );
@@ -996,7 +1072,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.08,
         shadowRadius: 24,
         elevation: 5,
-        borderWidth: 1,
+        borderWidth: 0,
         borderColor: '#6B4B3E',
     },
     reminderRow: {
@@ -1034,6 +1110,55 @@ const styles = StyleSheet.create({
         backgroundColor: '#F3E3D7',
         marginVertical: 12,
         marginLeft: 48,
+    },
+    statusContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginTop: 2,
+    },
+    statusDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+    },
+    incompleteGlow: {
+        shadowColor: '#F44336',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    reminderContent: {
+        flex: 1,
+        paddingRight: 8,
+    },
+    widgetsCard: {
+        backgroundColor: '#FFF7EE',
+        borderRadius: 24,
+        padding: 24,
+        marginBottom: 32,
+        shadowColor: '#6B4B3E',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.08,
+        shadowRadius: 24,
+        elevation: 5,
+        borderWidth: 0,
+        borderColor: '#6B4B3E',
+    },
+    widgetButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    widgetButtonText: {
+        fontSize: 16,
+        fontFamily: 'Inter-Bold',
+        color: '#6B4B3E',
+    },
+    codeBox: {
+        alignItems: 'center',
+        marginTop: 8,
     },
 });
 

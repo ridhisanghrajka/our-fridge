@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Image, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { Image } from 'expo-image';
 import { collection, query, where, orderBy, limit, startAfter, getDocs, Timestamp, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase.config';
 import { usePairing } from '../hooks/usePairing';
@@ -185,7 +186,12 @@ export const ActivityScreen: React.FC = () => {
                     <View style={styles.logCard}>
                         <View style={styles.avatarContainer}>
                             {item.userPhoto ? (
-                                <Image source={{ uri: item.userPhoto }} style={styles.avatar} />
+                                <Image 
+                                    source={{ uri: item.userPhoto }} 
+                                    style={styles.avatar}
+                                    contentFit="cover"
+                                    cachePolicy="disk"
+                                />
                             ) : (
                                 <View style={styles.initialCircle}>
                                     <Text style={styles.initialText}>{item.userName.charAt(0).toUpperCase()}</Text>

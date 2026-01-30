@@ -3,8 +3,9 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase.config';
 import { updateNotificationPrefs, updateLocationReminder } from '../services/notifications';
 import { PairUser } from '../types/PairUser';
+import { registerGeofences } from '../services/locationService';
 
-export const useNotificationPrefs = (pairId: string | null, userName: string | null) => {
+export const useNotificationPrefs = (pairId: string | null, userId: string | null) => {
   const [prefs, setPrefs] = useState({
     notifyNotes: true,
     notifyFridgeUpdates: true,
@@ -13,12 +14,12 @@ export const useNotificationPrefs = (pairId: string | null, userName: string | n
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!pairId || !userName) {
+    if (!pairId || !userId) {
       setLoading(false);
       return;
     }
 
-    const userRef = doc(db, 'pairs', pairId, 'users', userName);
+    const userRef = doc(db, 'pairs', pairId, 'users', userId);
     const unsubscribe = onSnapshot(userRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data() as PairUser;
@@ -34,19 +35,38 @@ export const useNotificationPrefs = (pairId: string | null, userName: string | n
     });
 
     return () => unsubscribe();
-  }, [pairId, userName]);
+  }, [pairId, userId]);
 
   const updatePrefs = async (newPrefs: { notifyNotes?: boolean; notifyFridgeUpdates?: boolean }) => {
-    if (!pairId || !userName) return;
-    await updateNotificationPrefs(pairId, userName, newPrefs);
+    if (!pairId || !userId) return;
+    await updateNotificationPrefs(pairId, userId, newPrefs);
   };
 
   const updateLocationReminders = async (
     type: 'departure' | 'store',
-    location: { latitude: number; longitude: number; address: string; label?: string } | null
+    location: { latitude: number; longitude: number; address: string; label?: string; isEnabled?: boolean } | null
   ) => {
-    if (!pairId || !userName) return;
-    await updateLocationReminder(pairId, userName, type, location);
+    if (!pairId || !userId) return;
+    await updateLocationReminder(pairId, userId, type, location);
+  };
+
+  const saveAndRegisterLocation = async (
+    type: 'departure' | 'store',
+    location: { latitude: number; longitude: number; address: string; label?: string; isEnabled?: boolean } | null
+  ) => {
+    if (!pairId || !userId) return;
+    
+    // 1. Save to Firebase
+    await updateLocationReminders(type, location);
+    
+    // 2. Register Geofences with updated data
+    const updatedDeparture = type === 'departure' ? location : reminders?.departureLocation;
+    const updatedStore = type === 'store' ? location : reminders?.storeLocation;
+    
+    await registerGeofences(
+      updatedDeparture || undefined, 
+      updatedStore || undefined
+    );
   };
 
   return {
@@ -55,5 +75,6 @@ export const useNotificationPrefs = (pairId: string | null, userName: string | n
     loading,
     updatePrefs,
     updateLocationReminders,
+    saveAndRegisterLocation,
   };
 };

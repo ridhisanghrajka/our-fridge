@@ -7,7 +7,6 @@ import { ActivityScreen } from '../screens/ActivityScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { PairingScreen } from '../screens/PairingScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
-import { NotificationManager } from '../components/NotificationManager';
 import { WidgetSynchronizer } from '../components/WidgetSynchronizer';
 import { usePairing } from '../hooks/usePairing';
 import { View, Text, ActivityIndicator, StyleSheet, TouchableOpacity, Alert } from 'react-native';
@@ -28,7 +27,7 @@ const linking = {
 };
 
 export const AppNavigator: React.FC = () => {
-    const { pairId, userName, loading, userLoading, user, pair, unpair, isOnboarding, logout } = usePairing();
+    const { pairId, userName, loading, userLoading, user, pair, unpair, isOnboarding, logout, isPremium } = usePairing();
 
     const handleLeaveFridge = () => {
         Alert.alert(
@@ -60,40 +59,8 @@ export const AppNavigator: React.FC = () => {
         return <OnboardingScreen />;
     }
 
-    // Hard Gate Logic: Check if trial is expired AND fridge is not premium
-    const trialExpired = user?.trialStartedAt ? (Date.now() - user.trialStartedAt.getTime()) > 7 * 24 * 60 * 60 * 1000 : false;
-    const isPremium = pair?.isPremiumEnabled || user?.isPremium;
-
-    if (trialExpired && !isPremium) {
-        return (
-            <LinearGradient colors={['#DDF3FF', '#FFF6EA']} style={styles.gateContainer}>
-                <View style={styles.gateContent}>
-                    <Text style={styles.gateEmoji}>🧊</Text>
-                    <Text style={styles.gateTitle}>Fridge Paused</Text>
-                    <Text style={styles.gateSubtitle}>
-                        Your 7-day trial has ended. Subscribe to keep sharing moments with your partner.
-                    </Text>
-                    
-                    <TouchableOpacity 
-                        style={styles.gateButton} 
-                        onPress={() => {
-                            presentPaywall();
-                        }}
-                    >
-                        <Text style={styles.gateButtonText}>View Plans</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.unpairLink} onPress={handleLeaveFridge}>
-                        <Text style={styles.unpairLinkText}>Leave Fridge</Text>
-                    </TouchableOpacity>
-                </View>
-            </LinearGradient>
-        );
-    }
-
     return (
         <NavigationContainer linking={linking}>
-            {userName && <NotificationManager pairId={pairId} userName={userName} />}
             {pairId && <WidgetSynchronizer />}
             <Tab.Navigator
                 screenOptions={{
@@ -192,61 +159,5 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         padding: 40,
-    },
-    gateContent: {
-        alignItems: 'center',
-        backgroundColor: '#FFF7EE',
-        borderRadius: 32,
-        padding: 32,
-        borderWidth: 2,
-        borderColor: '#6B4B3E',
-        shadowColor: '#6B4B3E',
-        shadowOffset: { width: 0, height: 12 },
-        shadowOpacity: 0.08,
-        shadowRadius: 24,
-        elevation: 10,
-    },
-    gateEmoji: {
-        fontSize: 64,
-        marginBottom: 20,
-    },
-    gateTitle: {
-        fontSize: 34, // Increased to match editorial headers
-        fontFamily: 'Poppins-Bold',
-        color: '#6B4B3E',
-        marginBottom: 12,
-        textAlign: 'center',
-    },
-    gateSubtitle: {
-        fontSize: 14, // Reduced from 16
-        fontFamily: 'Inter-Regular',
-        color: '#6B4B3E',
-        opacity: 0.6,
-        textAlign: 'center',
-        lineHeight: 22,
-        marginBottom: 32,
-    },
-    gateButton: {
-        backgroundColor: '#6B4B3E',
-        width: '100%',
-        paddingVertical: 16,
-        borderRadius: 12,
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    gateButtonText: {
-        color: '#FFFFFF',
-        fontSize: 16,
-        fontFamily: 'Inter-SemiBold',
-    },
-    unpairLink: {
-        padding: 10,
-    },
-    unpairLinkText: {
-        color: '#6B4B3E',
-        opacity: 0.6,
-        textDecorationLine: 'underline',
-        fontFamily: 'Inter-Regular',
-        fontSize: 14,
     },
 });

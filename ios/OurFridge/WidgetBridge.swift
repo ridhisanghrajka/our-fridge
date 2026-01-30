@@ -16,4 +16,11 @@ class WidgetBridge: NSObject {
       WidgetCenter.shared.reloadAllTimelines()
     }
   }
+
+  @objc(exitApp)
+  func exitApp() {
+    DispatchQueue.main.async {
+      exit(0)
+    }
+  }
 }

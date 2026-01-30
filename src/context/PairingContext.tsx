@@ -14,7 +14,6 @@ import {
     getStoredUserName,
     leaveFridge as leaveFridgeService,
     updateFridgeName as updateFridgeNameService,
-    updateUserName as updateUserNameService,
     updateUserPhoto as updateUserPhotoService,
     updateCreatedAt as updateCreatedAtService,
     getUser,
@@ -23,9 +22,13 @@ import {
     signUpWithEmail as signUpService,
     signInWithEmail as signInService,
     signInWithAppleCredential as signInWithAppleService,
-    clearPairing
+    clearPairing,
+    setHasAccount,
+    getHasAccount
 } from '../services/pairing';
 import { initializeBilling } from '../services/billing';
+import { registerForPushNotificationsAsync, updateUserMetadata } from '../services/notifications';
+import { AppState, AppStateStatus } from 'react-native';
 
 interface PairingContextType {
     pairId: string | null;
@@ -35,9 +38,10 @@ interface PairingContextType {
     loading: boolean;
     userLoading: boolean;
     error: string | null;
-    hasJustStartedTrial: boolean;
     isOnboarding: boolean;
+    hasAccount: boolean;
     isPremium: boolean;
+    refreshPremiumStatus: () => Promise<void>;
     completeOnboarding: () => void;
     createNewPair: (name: string, fridgeName?: string) => Promise<string>;
     joinExistingPair: (code: string, name: string) => Promise<void>;
@@ -46,8 +50,6 @@ interface PairingContextType {
     updateUserName: (newName: string) => Promise<void>;
     updateUserPhoto: (photoURL: string) => Promise<void>;
     updateCreatedAt: (newDate: Date) => Promise<void>;
-    startTrial: () => Promise<void>;
-    resetTrialTrigger: () => void;
     signUp: (email: string, password: string, name: string) => Promise<void>;
     signIn: (email: string, password: string) => Promise<void>;
     signInWithApple: () => Promise<void>;
@@ -64,26 +66,33 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
     const [loading, setLoading] = useState(true);
     const [userLoading, setUserLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [hasJustStartedTrial, setHasJustStartedTrial] = useState(false);
     const [isOnboarding, setIsOnboarding] = useState(true);
-    const [isPremium, setIsPremium] = useState(false);
+    const [hasAccount, setHasAccountState] = useState(false);
+    const [isPremiumSDK, setIsPremiumSDK] = useState(false);
+
+    const refreshPremiumStatus = async () => {
+        const { checkPremiumStatus } = require('../services/billing');
+        try {
+            const status = await checkPremiumStatus();
+            setIsPremiumSDK(status);
+        } catch (err) {
+            console.error('Error refreshing premium status:', err);
+        }
+    };
 
     // Initial load from local storage
     useEffect(() => {
         const checkPremium = async () => {
-            const { checkPremiumStatus } = require('../services/billing');
-            try {
-                const status = await checkPremiumStatus();
-                setIsPremium(status);
-            } catch (err) {
-                console.error('Error checking premium status:', err);
-            }
+            await refreshPremiumStatus();
         };
 
         const loadStoredData = async () => {
             try {
                 const storedPairId = await getStoredPairId();
                 const storedUserName = await getStoredUserName();
+                const storedHasAccount = await getHasAccount();
+                
+                if (storedHasAccount) setHasAccountState(true);
                 if (storedPairId) setPairId(storedPairId);
                 if (storedUserName) {
                     setUserName(storedUserName);
@@ -128,9 +137,7 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
                     
                     // Initialize billing
                     initializeBilling(firebaseUser.uid).then(async () => {
-                        const { checkPremiumStatus } = require('../services/billing');
-                        const status = await checkPremiumStatus();
-                        setIsPremium(status);
+                        await refreshPremiumStatus();
                     }).catch(err => 
                         console.error('Error initializing billing:', err)
                     );
@@ -151,6 +158,36 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
 
         return () => unsubscribe();
     }, []);
+
+    // Listen to notification registration and sync metadata
+    useEffect(() => {
+        if (!pairId || !user) return;
+
+        const syncNotifications = async () => {
+            try {
+                // 1. Get current token (fast if already granted)
+                // Passing false to avoid triggering system prompt automatically
+                const token = await registerForPushNotificationsAsync(false);
+                
+                // 2. Sync to Firestore (updates lastSeenAt + token)
+                // This informs the "Calm Logic" that the user is currently active
+                await updateUserMetadata(pairId, user.uid, token);
+            } catch (err) {
+                console.error('Error syncing notifications:', err);
+            }
+        };
+
+        syncNotifications();
+
+        // Also sync when app comes back to foreground
+        const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+            if (nextAppState === 'active') {
+                syncNotifications();
+            }
+        });
+
+        return () => subscription.remove();
+    }, [pairId, user?.uid]);
 
     // Listen to pair updates when pairId is set
     useEffect(() => {
@@ -334,21 +371,13 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
         await updateCreatedAtService(pairId, newDate);
     };
 
-    const startTrial = async () => {
-        if (!user || user.trialStartedAt) return;
-        const now = new Date();
-        await updateUser(user.uid, { trialStartedAt: now });
-        setUser(prev => prev ? { ...prev, trialStartedAt: now } : null);
-        setHasJustStartedTrial(true);
-    };
-
-    const resetTrialTrigger = () => {
-        setHasJustStartedTrial(false);
-    };
-
     const completeOnboarding = () => {
         setIsOnboarding(false);
+        setHasAccount(true);
+        setHasAccountState(true);
     };
+
+    const combinedIsPremium = isPremiumSDK || user?.isPremium || pair?.isPremiumEnabled || false;
 
     return (
         <PairingContext.Provider value={{
@@ -359,9 +388,10 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
             loading,
             userLoading,
             error,
-            hasJustStartedTrial,
             isOnboarding,
-            isPremium,
+            hasAccount,
+            isPremium: combinedIsPremium,
+            refreshPremiumStatus,
             completeOnboarding,
             createNewPair,
             joinExistingPair,
@@ -370,8 +400,6 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
             updateUserName,
             updateUserPhoto,
             updateCreatedAt,
-            startTrial,
-            resetTrialTrigger,
             signUp,
             signIn,
             signInWithApple,

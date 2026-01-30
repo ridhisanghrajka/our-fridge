@@ -11,21 +11,19 @@ import { syncDataToWidget } from '../services/widgetSync';
  * and also when the app is backgrounded to ensure the widget is fresh.
  */
 export const WidgetSynchronizer: React.FC = () => {
-  const { pairId, userName, pair, user } = usePairing();
+  const { pairId, userName, pair, user, isPremium } = usePairing();
   const { items } = useGroceryItems(pairId, userName);
   const { note } = useSharedNote(pairId, userName);
   const appState = useRef(AppState.currentState);
 
   const fridgeName = pair?.fridgeName || (userName ? `${userName}'s Fridge` : 'Our Fridge');
-  const isPremium = pair?.isPremiumEnabled || user?.isPremium || false;
-  const trialStartedAt = user?.trialStartedAt || null;
 
   // Sync whenever data changes
   useEffect(() => {
     if (pairId && items.length >= 0) {
-      syncDataToWidget(items, note, fridgeName, isPremium, trialStartedAt);
+      syncDataToWidget(items, note, fridgeName, isPremium);
     }
-  }, [items, note, fridgeName, pairId, isPremium, trialStartedAt]);
+  }, [items, note, fridgeName, pairId, isPremium]);
 
   // Ensure fresh sync when app goes to background
   useEffect(() => {
@@ -35,7 +33,7 @@ export const WidgetSynchronizer: React.FC = () => {
         nextAppState.match(/inactive|background/)
       ) {
         if (pairId && items.length >= 0) {
-          syncDataToWidget(items, note, fridgeName, isPremium, trialStartedAt);
+          syncDataToWidget(items, note, fridgeName, isPremium);
         }
       }
       appState.current = nextAppState;

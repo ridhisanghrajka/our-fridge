@@ -13,6 +13,9 @@
 		758A31632F1B367A00656DF7 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 758A31622F1B367900656DF7 /* WidgetKit.framework */; };
 		758A31652F1B367A00656DF7 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 758A31642F1B367A00656DF7 /* SwiftUI.framework */; };
 		758A31702F1B367A00656DF7 /* FridgeWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 758A31612F1B367900656DF7 /* FridgeWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		758A32D22F29BFCD00656DF7 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 758A32D12F29BFCD00656DF7 /* GoogleService-Info.plist */; };
+		758A32D32F29BFCD00656DF7 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 758A32D12F29BFCD00656DF7 /* GoogleService-Info.plist */; };
+		758A32D52F2C42F500656DF7 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 758A32D42F2C42F500656DF7 /* StoreKit.framework */; };
 		97218D1C7E0E8395BBA3F098 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F281F79808C860C9E407FB4B /* ExpoModulesProvider.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		D64C632364E477D07CD0B43E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 5E5D6ACB551E91538D53CA08 /* PrivacyInfo.xcprivacy */; };
@@ -55,6 +58,8 @@
 		758A31622F1B367900656DF7 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		758A31642F1B367A00656DF7 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		758A31762F1B3B4900656DF7 /* FridgeWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FridgeWidgetExtension.entitlements; sourceTree = "<group>"; };
+		758A32D12F29BFCD00656DF7 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		758A32D42F2C42F500656DF7 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = OurFridge/SplashScreen.storyboard; sourceTree = "<group>"; };
 		B4ABB32DD7EB5A054E4B3C00 /* Pods-OurFridge.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-OurFridge.debug.xcconfig"; path = "Target Support Files/Pods-OurFridge/Pods-OurFridge.debug.xcconfig"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
@@ -98,6 +103,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				582F7AA4A00B241440BF7DEB /* libPods-OurFridge.a in Frameworks */,
+				758A32D52F2C42F500656DF7 /* StoreKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -116,6 +122,7 @@
 		13B07FAE1A68108700A75B9A /* OurFridge */ = {
 			isa = PBXGroup;
 			children = (
+				758A32D12F29BFCD00656DF7 /* GoogleService-Info.plist */,
 				F11748412D0307B40044C1D9 /* AppDelegate.swift */,
 				F11748442D0722820044C1D9 /* OurFridge-Bridging-Header.h */,
 				F11748452D0722820044C1D9 /* WidgetBridge.swift */,
@@ -132,6 +139,7 @@
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				758A32D42F2C42F500656DF7 /* StoreKit.framework */,
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
 				758A31622F1B367900656DF7 /* WidgetKit.framework */,
 				758A31642F1B367A00656DF7 /* SwiftUI.framework */,
@@ -297,6 +305,7 @@
 			files = (
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
+				758A32D22F29BFCD00656DF7 /* GoogleService-Info.plist in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
 				D64C632364E477D07CD0B43E /* PrivacyInfo.xcprivacy in Resources */,
 			);
@@ -306,6 +315,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				758A32D32F29BFCD00656DF7 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -449,7 +459,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = OurFridge/OurFridge.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 3H947YQKW2;
+				DEVELOPMENT_TEAM = W9F5AGQ7QJ;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -486,7 +496,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = OurFridge/OurFridge.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 3H947YQKW2;
+				DEVELOPMENT_TEAM = W9F5AGQ7QJ;
 				INFOPLIST_FILE = OurFridge/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -526,7 +536,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = 3H947YQKW2;
+				DEVELOPMENT_TEAM = W9F5AGQ7QJ;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -576,7 +586,7 @@
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = 3H947YQKW2;
+				DEVELOPMENT_TEAM = W9F5AGQ7QJ;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;

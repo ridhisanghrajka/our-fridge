@@ -15,4 +15,5 @@ export interface SharedNote {
     content: string; // JSON string of CanvasElement[]
     updatedAt: Date;
     updatedBy: string;
+    updatedByUid?: string;
 }

@@ -14,6 +14,22 @@ import { User } from '../types/User';
 
 const PAIR_ID_KEY = '@OurFridge:pairId';
 const USER_NAME_KEY = '@OurFridge:userName';
+const HAS_ACCOUNT_KEY = '@OurFridge:hasAccount';
+
+/**
+ * Set the hasAccount flag in local storage
+ */
+export const setHasAccount = async (value: boolean): Promise<void> => {
+    await AsyncStorage.setItem(HAS_ACCOUNT_KEY, JSON.stringify(value));
+};
+
+/**
+ * Get the hasAccount flag from local storage
+ */
+export const getHasAccount = async (): Promise<boolean> => {
+    const value = await AsyncStorage.getItem(HAS_ACCOUNT_KEY);
+    return value ? JSON.parse(value) : false;
+};
 
 /**
  * Sign up with email and password
@@ -96,7 +112,6 @@ export const getUser = async (uid: string): Promise<User | null> => {
             email: data.email || null,
             name: data.name,
             isPremium: data.isPremium || false,
-            trialStartedAt: data.trialStartedAt?.toDate() || null,
             fridgeId: data.fridgeId || null,
             photoURL: data.photoURL || null,
             createdAt: data.createdAt?.toDate() || new Date(),
@@ -115,7 +130,6 @@ export const createUser = async (uid: string, email: string | null = null): Prom
         email,
         name: null,
         isPremium: false,
-        trialStartedAt: null,
         fridgeId: null,
         photoURL: null,
         createdAt: new Date(),
@@ -133,9 +147,6 @@ export const createUser = async (uid: string, email: string | null = null): Prom
 export const updateUser = async (uid: string, data: Partial<User>): Promise<void> => {
     const userRef = doc(db, 'users', uid);
     const updateData: any = { ...data };
-    if (data.trialStartedAt) {
-        updateData.trialStartedAt = Timestamp.fromDate(data.trialStartedAt);
-    }
     if (data.createdAt) {
         updateData.createdAt = Timestamp.fromDate(data.createdAt);
     }

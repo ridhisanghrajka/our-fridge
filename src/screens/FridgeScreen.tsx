@@ -5,7 +5,6 @@ import { usePairing } from '../hooks/usePairing';
 import Svg, { Path, G, Defs, Use, ClipPath, Rect } from 'react-native-svg';
 import { useGroceryItems } from '../hooks/useGroceryItems';
 import { useSharedNote } from '../hooks/useSharedNote';
-import { useNotificationPrefs } from '../hooks/useNotificationPrefs';
 import { useNavigation } from '@react-navigation/native';
 import { FridgeSVG } from '../components/FridgeSVG';
 import { FridgeHandleSVG } from '../components/FridgeHandleSVG';
@@ -22,11 +21,9 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 export const FridgeScreen: React.FC = () => {
     const navigation = useNavigation<any>();
-    const { pairId, userName, user, pair, startTrial, hasJustStartedTrial, resetTrialTrigger } = usePairing();
+    const { pairId, userName, user, pair, isPremium } = usePairing();
     const { items, addItem, toggleItem, deleteItem, updateItem } = useGroceryItems(pairId, user);
-    const { note, updateNote } = useSharedNote(pairId, userName);
-    const { reminders } = useNotificationPrefs(pairId, userName);
-
+    const { note, updateNote } = useSharedNote(pairId, user);
     const [addItemVisible, setAddItemVisible] = useState(false);
     const [writeNoteVisible, setWriteNoteVisible] = useState(false);
     const [editingItem, setEditingItem] = useState<GroceryItem | null>(null);
@@ -35,26 +32,8 @@ export const FridgeScreen: React.FC = () => {
     // Calculate notepad title
     const notepadTitle = pair?.fridgeName || (userName ? `${userName}'s Fridge` : "Our Fridge");
 
-    // Show trial celebration/paywall
-    React.useEffect(() => {
-        if (hasJustStartedTrial) {
-            Alert.alert(
-                "That's a Wrap! 🧊",
-                "Your first item is on the fridge. Your 7-day Pro trial has officially started!",
-                [{ 
-                    text: "Great!", 
-                    onPress: async () => {
-                        resetTrialTrigger();
-                        await presentPaywall();
-                    }
-                }]
-            );
-        }
-    }, [hasJustStartedTrial]);
-
     const handleAddItem = async (name: string, quantity?: string, imageUrl?: string, imagePath?: string) => {
         await addItem(name, undefined, quantity, imageUrl, imagePath);
-        await startTrial();
     };
 
     const handleUpdateItem = async (itemId: string, updates: any) => {
@@ -63,7 +42,6 @@ export const FridgeScreen: React.FC = () => {
 
     const handleUpdateNote = async (content: string) => {
         await updateNote(content);
-        await startTrial();
     };
 
     // Parse canvas elements safely
@@ -157,29 +135,43 @@ export const FridgeScreen: React.FC = () => {
 
             {/* Grocery list overlay */}
             <View style={[styles.listContainer, { left: listLeft, top: listTop, width: listWidth, height: listHeight }]}>
-                {items.length === 0 ? (
-                    <TouchableOpacity 
-                        style={styles.emptyStateContainer}
-                        onPress={() => navigation.navigate('Profile')}
-                        activeOpacity={0.7}
-                    >
-                        <Text style={[styles.emptyStateTitle, { fontSize: 18 * rScale }]}>Fridge is empty! 🥛</Text>
-                        {(!reminders?.departureLocation || !reminders?.storeLocation) && (
-                            <Text style={[styles.emptyStateSubtitle, { fontSize: 13 * rScale }]}>
-                                Set a reminder in your Profile to pick groceries up on the way.
-                            </Text>
-                        )}
-                    </TouchableOpacity>
-                ) : (
+                        {items.length === 0 ? (
+                            <TouchableOpacity 
+                                style={styles.emptyStateContainer}
+                                onPress={() => navigation.navigate('Profile')}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={[styles.emptyStateTitle, { fontSize: 18 * rScale }]}>Fridge is empty! 🥛</Text>
+                            </TouchableOpacity>
+                        ) : (
                     <FlatList
                         data={items}
+                        extraData={items}
                         keyExtractor={(item) => item.id}
                         renderItem={({ item }) => (
                             <GroceryListRow
                                 item={item}
-                                onToggle={() => toggleItem(item.id, item.isDone)}
-                                onPress={() => setEditingItem(item)}
-                                onDelete={() => deleteItem(item.id)}
+                                onToggle={async () => {
+                                    if (!isPremium) {
+                                        await presentPaywall();
+                                        return;
+                                    }
+                                    toggleItem(item.id, item.isDone);
+                                }}
+                                onPress={async () => {
+                                    if (!isPremium) {
+                                        await presentPaywall();
+                                        return;
+                                    }
+                                    setEditingItem(item);
+                                }}
+                                onDelete={async () => {
+                                    if (!isPremium) {
+                                        await presentPaywall();
+                                        return;
+                                    }
+                                    deleteItem(item.id);
+                                }}
                                 scale={rScale}
                                 rowHeight={listHeight / 5}
                             />
@@ -233,7 +225,13 @@ export const FridgeScreen: React.FC = () => {
             {/* Shared note overlay */}
             <TouchableOpacity
                 style={[styles.noteContainer, { left: noteLeft, top: noteTop, width: noteWidth, height: noteHeight }]}
-                onPress={() => setWriteNoteVisible(true)}
+                onPress={async () => {
+                    if (!isPremium) {
+                        await presentPaywall();
+                        return;
+                    }
+                    setWriteNoteVisible(true);
+                }}
                 activeOpacity={0.7}
             >
                 <View style={[StyleSheet.absoluteFill]} pointerEvents="none">
@@ -255,7 +253,16 @@ export const FridgeScreen: React.FC = () => {
 
             {/* Action buttons - centered on body */}
             <View style={[styles.buttonContainer, { top: buttonsTop, left: bodyCenterX - bodyWidth / 2, width: bodyWidth, gap: 20 * rScale }]}>
-                <TouchableOpacity style={[styles.actionButton, { borderRadius: 16 * rScale, paddingVertical: 12 * rScale, paddingHorizontal: 20 * rScale }]} onPress={() => setAddItemVisible(true)}>
+                <TouchableOpacity 
+                    style={[styles.actionButton, { borderRadius: 16 * rScale, paddingVertical: 12 * rScale, paddingHorizontal: 20 * rScale }]} 
+                    onPress={async () => {
+                        if (!isPremium) {
+                            await presentPaywall();
+                            return;
+                        }
+                        setAddItemVisible(true);
+                    }}
+                >
                     <Svg width={24 * rScale} height={24 * rScale} viewBox="0 0 24 24">
                         <G fill="none" fillRule="evenodd">
                             <Path d="m12.594 23.258l-.012.002l-.071.035l-.02.004l-.014-.004l-.071-.036q-.016-.004-.024.006l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427q-.004-.016-.016-.018m.264-.113l-.014.002l-.184.093l-.01.01l-.003.011l.018.43l.005.012l.008.008l.201.092q.019.005.029-.008l.004-.014l-.034-.614q-.005-.019-.02-.022m-.715.002a.02.02 0 0 0-.027.006l-.006.014l-.034.614q.001.018.017.024l.015-.002l.201-.093l.01-.008l.003-.011l.018-.43l-.003-.012l-.01-.01z" />
@@ -265,7 +272,16 @@ export const FridgeScreen: React.FC = () => {
                     <Text style={[styles.buttonText, { fontSize: 16 * rScale }]}>Add Item</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={[styles.actionButton, { borderRadius: 16 * rScale, paddingVertical: 12 * rScale, paddingHorizontal: 20 * rScale }]} onPress={() => setWriteNoteVisible(true)}>
+                <TouchableOpacity 
+                    style={[styles.actionButton, { borderRadius: 16 * rScale, paddingVertical: 12 * rScale, paddingHorizontal: 20 * rScale }]} 
+                    onPress={async () => {
+                        if (!isPremium) {
+                            await presentPaywall();
+                            return;
+                        }
+                        setWriteNoteVisible(true);
+                    }}
+                >
                     <Svg width={24 * rScale} height={24 * rScale} viewBox="0 0 128 128">
                         <Defs>
                             <Path id="SVGG9rYnebu" d="M17.73 68.85L.63 121.91s-.54 2.54.92 3.44s2.9.17 2.9.17l53.71-20.37l-11.01-30.07z" />

@@ -13,17 +13,27 @@ import {
     Alert,
     ScrollView,
     Image,
-    ActivityIndicator
+    ActivityIndicator,
+    FlatList,
+    NativeSyntheticEvent,
+    NativeScrollEvent
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import LottieView from 'lottie-react-native';
 // import * as Clipboard from 'expo-clipboard';
 import { usePairing } from '../hooks/usePairing';
+import { registerForPushNotificationsAsync } from '../services/notifications';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 const FridgeHiImage = require('../assets/fridge_hi.png');
+const Scene1Animation = require('../assets/animations/scene1.json');
+const Scene2Animation = require('../assets/animations/scene2.json');
+const NotificationAnimation = require('../assets/animations/Notification-remix.json');
 
-const { width: screenWidth } = Dimensions.get('window');
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 const EyeIcon = ({ size = 20, color = "#A89B8F", open = true }) => (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -41,17 +51,49 @@ const EyeIcon = ({ size = 20, color = "#A89B8F", open = true }) => (
     </Svg>
 );
 
-const OnboardingIcon = ({ type }: { type: 'welcome' | 'notifications' | 'premium' | 'success' }) => {
+const OnboardingIcon = ({ type, bounceAnim }: { type: 'welcome' | 'notifications' | 'premium' | 'success', bounceAnim?: Animated.Value }) => {
     switch (type) {
         case 'welcome':
             return (
-                <View style={styles.iconContainer}>
+                <Animated.View 
+                    style={[
+                        styles.iconContainer,
+                        bounceAnim && {
+                            transform: [
+                                {
+                                    scale: bounceAnim.interpolate({
+                                        inputRange: [0, 1],
+                                        outputRange: [0.3, 1]
+                                    })
+                                },
+                                {
+                                    translateY: bounceAnim.interpolate({
+                                        inputRange: [0, 1],
+                                        outputRange: [50, 0]
+                                    })
+                                },
+                                {
+                                    scaleX: bounceAnim.interpolate({
+                                        inputRange: [0, 0.8, 0.9, 1],
+                                        outputRange: [1, 1, 1.1, 1] // Slight stretch on landing
+                                    })
+                                },
+                                {
+                                    scaleY: bounceAnim.interpolate({
+                                        inputRange: [0, 0.8, 0.9, 1],
+                                        outputRange: [1, 1, 0.9, 1] // Slight squash on landing
+                                    })
+                                }
+                            ]
+                        }
+                    ]}
+                >
                     <Image 
                         source={FridgeHiImage} 
                         style={styles.welcomeImage}
                         resizeMode="contain"
                     />
-                </View>
+                </Animated.View>
             );
         case 'notifications':
             return (
@@ -88,7 +130,8 @@ export const OnboardingScreen: React.FC = () => {
         signInWithApple,
         loading,
         userLoading,
-        error: authError
+        error: authError,
+        hasAccount
     } = usePairing();
 
     const [step, setStep] = useState(() => {
@@ -96,6 +139,23 @@ export const OnboardingScreen: React.FC = () => {
         if (user) return 5;   // Setup Choice
         return 1;             // Welcome
     });
+
+    // Handle returning users who logged out
+    React.useEffect(() => {
+        const checkStatusAndRedirect = async () => {
+            if (!user && !pairId && hasAccount && step === 1) {
+                if (Device.isDevice) {
+                    const { status } = await Notifications.getPermissionsAsync();
+                    if (status !== 'undetermined') {
+                        setStep(4); // Skip to Sign In only if notifications already handled
+                    }
+                } else {
+                    setStep(4); // On simulator, just skip
+                }
+            }
+        };
+        checkStatusAndRedirect();
+    }, [hasAccount, user, pairId]);
     const [name, setName] = useState(userName || '');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -104,8 +164,26 @@ export const OnboardingScreen: React.FC = () => {
     const [pairingCode, setPairingCode] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [generatedCode, setGeneratedCode] = useState<string | null>(null);
+    const [currentCarouselIndex, setCurrentCarouselIndex] = useState(0);
+    const flatListRef = useRef<FlatList>(null);
 
     const fadeAnim = useRef(new Animated.Value(1)).current;
+    const bounceAnim = useRef(new Animated.Value(0)).current;
+
+    React.useEffect(() => {
+        if (step === 1) {
+            // Reset animations
+            bounceAnim.setValue(0);
+
+            // Run image bounce only
+            Animated.spring(bounceAnim, {
+                toValue: 1,
+                friction: 4,
+                tension: 40,
+                useNativeDriver: true,
+            }).start();
+        }
+    }, [step]);
 
     const nextStep = (targetStep?: number) => {
         Animated.timing(fadeAnim, {
@@ -224,19 +302,126 @@ export const OnboardingScreen: React.FC = () => {
         }
     };
 
+    const carouselData = [
+        {
+            id: '1',
+            title: 'Welcome to\nOur Fridge',
+            subtitle: 'A shared fridge that keeps everyone in sync.',
+            type: 'image',
+            source: FridgeHiImage,
+        },
+        {
+            id: '2',
+            title: 'Track Together',
+            subtitle: 'Maintain a shared grocery list and notes.',
+            type: 'lottie',
+            source: Scene1Animation,
+        },
+        {
+            id: '3',
+            title: 'Update live with widgets',
+            subtitle: 'Share notes and drawings with up to 4 users',
+            type: 'lottie',
+            source: Scene2Animation,
+        }
+    ];
+
+    const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+        const scrollOffset = event.nativeEvent.contentOffset.x;
+        const index = Math.round(scrollOffset / screenWidth);
+        setCurrentCarouselIndex(index);
+    };
+
+    const handleNext = async () => {
+        if (currentCarouselIndex < carouselData.length - 1) {
+            flatListRef.current?.scrollToIndex({
+                index: currentCarouselIndex + 1,
+                animated: true,
+            });
+        } else {
+            // Check if we should show the notification pre-prompt screen
+            let shouldShowNotifications = false;
+            
+            if (Device.isDevice) {
+                const { status } = await Notifications.getPermissionsAsync();
+                // status will be 'undetermined' if the user hasn't responded to the system prompt yet
+                shouldShowNotifications = status === 'undetermined';
+            }
+
+            if (shouldShowNotifications) {
+                nextStep(9);
+            } else {
+                nextStep(hasAccount ? 4 : 2);
+            }
+        }
+    };
+
+    const renderCarouselItem = ({ item, index }: { item: any, index: number }) => {
+        return (
+            <View style={styles.carouselPage}>
+                <View style={styles.welcomeContent}>
+                    {item.type === 'lottie' ? (
+                        <View style={styles.lottieContainer}>
+                            <LottieView
+                                source={item.source}
+                                autoPlay
+                                loop
+                                style={styles.lottieAnimation}
+                            />
+                        </View>
+                    ) : (
+                        <OnboardingIcon type="welcome" bounceAnim={index === 0 ? bounceAnim : undefined} />
+                    )}
+                    <View style={{ alignItems: 'center' }}>
+                        <Text style={styles.title}>{item.title}</Text>
+                        <Text style={styles.subtitle}>{item.subtitle}</Text>
+                    </View>
+                </View>
+            </View>
+        );
+    };
+
     const renderStep = () => {
         switch (step) {
-            case 1: // Welcome
+            case 1: // Carousel
                 return (
-                    <View style={styles.stepContainer}>
-                        <OnboardingIcon type="welcome" />
-                        <Text style={styles.title}>Welcome to Our Fridge</Text>
-                        <Text style={styles.subtitle}>
-                            A shared space for your home, your groceries, and your love.
-                        </Text>
-                        <TouchableOpacity style={styles.primaryButton} onPress={() => nextStep(2)}>
-                            <Text style={styles.buttonText}>Get Started</Text>
-                        </TouchableOpacity>
+                    <View style={styles.welcomeStepContainer}>
+                        <FlatList
+                            ref={flatListRef}
+                            data={carouselData}
+                            renderItem={renderCarouselItem}
+                            horizontal
+                            pagingEnabled
+                            showsHorizontalScrollIndicator={false}
+                            onScroll={handleScroll}
+                            scrollEventThrottle={16}
+                            keyExtractor={(item) => item.id}
+                            style={{ flex: 1 }}
+                        />
+                        
+                        <View style={styles.footerContainer}>
+                            <View style={styles.paginationContainer}>
+                                {carouselData.map((_, index) => (
+                                    <View
+                                        key={index}
+                                        style={[
+                                            styles.paginationDot,
+                                            currentCarouselIndex === index && styles.paginationDotActive
+                                        ]}
+                                    />
+                                ))}
+                            </View>
+
+                            <TouchableOpacity 
+                                style={[styles.primaryButton, styles.buttonGlow]} 
+                                onPress={handleNext}
+                                activeOpacity={0.9}
+                            >
+                                <Text style={styles.buttonText}>
+                                    {currentCarouselIndex === carouselData.length - 1 ? 'Get Started' : 'Next'}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 );
 
@@ -244,19 +429,22 @@ export const OnboardingScreen: React.FC = () => {
                 return (
                     <View style={styles.stepContainer}>
                         <OnboardingIcon type="welcome" />
-                        <Text style={styles.title}>Our Fridge</Text>
-                        <Text style={styles.subtitle}>Share your home, together</Text>
-                        
-                        <View style={styles.socialProofBadge}>
-                            <Text style={styles.socialProofText}>❤️ Join couples staying synced</Text>
+                        <View style={{ alignItems: 'center', marginBottom: 32 }}>
+                            <Text style={styles.title}>Our Fridge</Text>
+                            <Text style={[styles.subtitle, { marginBottom: 0 }]}>
+                                Keep your kitchen in sync, wherever you are.
+                            </Text>
                         </View>
-
-                        <TouchableOpacity style={styles.primaryButton} onPress={() => nextStep(3)}>
-                            <Text style={styles.buttonText}>Get Started</Text>
+                        
+                        <TouchableOpacity 
+                            style={[styles.primaryButton, styles.buttonGlow]} 
+                            onPress={() => nextStep(3)}
+                        >
+                            <Text style={styles.buttonText}>Create My Fridge</Text>
                         </TouchableOpacity>
                         
-                        <TouchableOpacity style={styles.textLinkButton} onPress={() => nextStep(4)}>
-                            <Text style={styles.textLink}>I already have an account</Text>
+                        <TouchableOpacity style={styles.outlineButton} onPress={() => nextStep(4)}>
+                            <Text style={styles.outlineButtonText}>I already have an account</Text>
                         </TouchableOpacity>
                     </View>
                 );
@@ -338,6 +526,10 @@ export const OnboardingScreen: React.FC = () => {
                                         <Text style={styles.footerLink}>Sign In</Text>
                                     </TouchableOpacity>
                                 </View>
+
+                                <TouchableOpacity style={[styles.backButton, { marginTop: 24 }]} onPress={() => nextStep(1)}>
+                                    <Text style={styles.backButtonText}>Back to Welcome</Text>
+                                </TouchableOpacity>
                             </View>
                         </ScrollView>
                     </KeyboardAvoidingView>
@@ -412,6 +604,10 @@ export const OnboardingScreen: React.FC = () => {
                                         <Text style={styles.footerLink}>Create Account</Text>
                                     </TouchableOpacity>
                                 </View>
+
+                                <TouchableOpacity style={[styles.backButton, { marginTop: 24 }]} onPress={() => nextStep(1)}>
+                                    <Text style={styles.backButtonText}>Back to Welcome</Text>
+                                </TouchableOpacity>
                             </View>
                         </ScrollView>
                     </KeyboardAvoidingView>
@@ -538,6 +734,58 @@ export const OnboardingScreen: React.FC = () => {
                     </View>
                 );
 
+            case 9: // Notification Permission Step
+                return (
+                    <View style={[styles.stepContainer, { justifyContent: 'flex-start', paddingTop: 40 }]}>
+                        <Text style={styles.notificationPageTitle}>Notifications</Text>
+                        <View style={[styles.lottieContainer, { height: screenWidth * 0.8, marginBottom: -20 }]}>
+                            <LottieView
+                                source={NotificationAnimation}
+                                autoPlay
+                                loop={false}
+                                style={styles.lottieAnimation}
+                            />
+                        </View>
+                        
+                        <View style={{ alignItems: 'center', width: '100%', marginBottom: 32 }}>
+                            <Text style={styles.notificationTitle}>Right-time reminders, not noise</Text>
+                            
+                            <View style={styles.bulletPointsContainer}>
+                                <View style={styles.bulletPoint}>
+                                    <Text style={styles.bulletDot}>•</Text>
+                                    <Text style={styles.bulletText}>Get notified when items are added or updated</Text>
+                                </View>
+                                <View style={styles.bulletPoint}>
+                                    <Text style={styles.bulletDot}>•</Text>
+                                    <Text style={styles.bulletText}>See notes and changes instantly from your partner</Text>
+                                </View>
+                                <View style={styles.bulletPoint}>
+                                    <Text style={styles.bulletDot}>•</Text>
+                                    <Text style={styles.bulletText}>Get reminders when you’re leaving work or near a store</Text>
+                                </View>
+                                
+                            </View>
+                        </View>
+                        
+                        <TouchableOpacity 
+                            style={[styles.primaryButton, styles.buttonGlow]} 
+                            onPress={async () => {
+                                await registerForPushNotificationsAsync(true);
+                                nextStep(hasAccount ? 4 : 2);
+                            }}
+                        >
+                            <Text style={styles.buttonText}>Enable Notifications</Text>
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity 
+                            style={styles.textLinkButton} 
+                            onPress={() => nextStep(hasAccount ? 4 : 2)}
+                        >
+                            <Text style={[styles.textLink, styles.smallLink]}>Not Now</Text>
+                        </TouchableOpacity>
+                    </View>
+                );
+
             default:
                 return null;
         }
@@ -559,22 +807,22 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
         justifyContent: 'center',
-        paddingHorizontal: 24,
     },
     stepContainer: {
         alignItems: 'center',
         width: '100%',
+        paddingHorizontal: 24, // Restore padding for non-carousel steps
     },
     iconContainer: {
         width: '100%',
-        height: screenWidth * 0.8,
-        marginBottom: 40,
+        height: screenWidth * 1.2, // Increased from 1.0
+        marginBottom: 0,
         alignItems: 'center',
         justifyContent: 'center',
     },
     welcomeImage: {
-        width: screenWidth * 0.8,
-        height: screenWidth * 0.8,
+        width: screenWidth * 1.2, // Increased from 1.0
+        height: screenWidth * 1.2, // Increased from 1.0
     },
     iconCircle: {
         width: 120,
@@ -593,20 +841,38 @@ const styles = StyleSheet.create({
         elevation: 4,
     },
     title: {
-        fontSize: 34,
+        fontSize: 40,
         fontFamily: 'Poppins-Bold',
         color: '#6B4B3E',
         textAlign: 'center',
-        marginBottom: 16,
+        marginBottom: 8,
     },
     subtitle: {
-        fontSize: 14, // Reduced from 18 for clarity
+        fontSize: 17, // Increased from 14
         fontFamily: 'Inter-Regular',
         color: '#6B4B3E',
         opacity: 0.6,
         textAlign: 'center',
-        marginBottom: 40,
-        lineHeight: 22, // Adjusted for smaller font
+        marginBottom: 32,
+        lineHeight: 26, // Slightly increased for better readability
+        paddingHorizontal: 30, // Added padding to match main text
+    },
+    welcomeStepContainer: {
+        flex: 1,
+        width: screenWidth,
+    },
+    welcomeContent: {
+        flex: 1,
+        width: screenWidth,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    buttonGlow: {
+        shadowColor: '#6B4B3E',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+        elevation: 10,
     },
     primaryButton: {
         backgroundColor: '#6B4B3E',
@@ -615,6 +881,22 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         alignItems: 'center',
         marginBottom: 12,
+    },
+    outlineButton: {
+        backgroundColor: 'transparent',
+        width: '100%',
+        paddingVertical: 18,
+        borderRadius: 16,
+        alignItems: 'center',
+        borderWidth: 1.5,
+        borderColor: 'rgba(107, 75, 62, 0.2)',
+        marginTop: 4,
+    },
+    outlineButtonText: {
+        color: '#6B4B3E',
+        fontSize: 16,
+        fontFamily: 'Inter-SemiBold',
+        opacity: 0.8,
     },
     secondaryButton: {
         backgroundColor: '#E79B74',
@@ -746,7 +1028,7 @@ const styles = StyleSheet.create({
     smallHeroImage: {
         width: 120,
         height: 120,
-        marginBottom: 20,
+        marginTop: 20,
     },
     passwordInputContainer: {
         flexDirection: 'row',
@@ -810,21 +1092,87 @@ const styles = StyleSheet.create({
         fontFamily: 'Inter-SemiBold',
         textDecorationLine: 'underline',
     },
-    socialProofBadge: {
-        backgroundColor: '#FFFFFF',
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-        marginBottom: 40,
-        shadowColor: '#6B4B3E',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 12,
-        elevation: 2,
-    },
-    socialProofText: {
-        color: '#E79B74',
+    smallLink: {
         fontSize: 14,
-        fontFamily: 'Inter-Bold',
+        opacity: 0.4,
+        textDecorationLine: 'none',
+    },
+    footerContainer: {
+        paddingHorizontal: 24,
+        paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+        width: '100%',
+    },
+    carouselPage: {
+        width: screenWidth,
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 24, // Add padding to keep text from edges
+    },
+    paginationContainer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 20, // Reduced from 32
+    },
+    paginationDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#DCC8B9',
+        marginHorizontal: 4,
+    },
+    paginationDotActive: {
+        backgroundColor: '#6B4B3E',
+        width: 20,
+    },
+    lottieContainer: {
+        width: screenWidth * 1.05, // Increased by 50% (from 0.7 to 1.05)
+        height: screenWidth * 1.2, // Match iconContainer height to align text
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 0, // Match iconContainer marginBottom to align text,
+    },
+    lottieAnimation: {
+        width: '100%',
+        height: '95%',
+    },
+    notificationPageTitle: {
+        fontSize: 20,
+        fontFamily: 'Poppins-Bold',
+        color: '#6B4B3E',
+        textAlign: 'center',
+        marginBottom: 0,
+    },
+    notificationTitle: {
+        fontSize: 28,
+        fontFamily: 'Poppins-Bold',
+        color: '#6B4B3E',
+        textAlign: 'center',
+        marginBottom: 16,
+    },
+    bulletPointsContainer: {
+        width: '100%',
+        paddingHorizontal: 20,
+        marginTop: 10,
+    },
+    bulletPoint: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginBottom: 12,
+    },
+    bulletDot: {
+        fontSize: 18,
+        color: '#6B4B3E',
+        marginRight: 10,
+        lineHeight: 24,
+    },
+    bulletText: {
+        fontSize: 16,
+        fontFamily: 'Inter-Regular',
+        color: '#6B4B3E',
+        opacity: 1,
+        lineHeight: 24,
+        flex: 1,
     },
 });

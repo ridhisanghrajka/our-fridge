@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -47,6 +47,40 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ visible, item, onC
         }
     };
 
+    const takePhoto = async () => {
+        if (!isEditing) return;
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Permission Denied', 'We need camera permissions to take a photo.');
+            return;
+        }
+
+        const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.5,
+        });
+
+        if (!result.canceled) {
+            setNewImageUri(result.assets[0].uri);
+            setImage(result.assets[0].uri);
+        }
+    };
+
+    const handleImagePress = () => {
+        if (!isEditing) return;
+        Alert.alert(
+            'Change Photo',
+            'Would you like to take a photo or choose from your library?',
+            [
+                { text: 'Take Photo', onPress: takePhoto },
+                { text: 'Choose from Library', onPress: pickImage },
+                { text: 'Cancel', style: 'cancel' },
+            ]
+        );
+    };
+
     const handleSave = async () => {
         if (!item || !name.trim()) return;
 
@@ -66,11 +100,11 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ visible, item, onC
                 imagePath = filename;
             }
 
-            onSave(item.id, {
+            await onSave(item.id, {
                 name: name.trim(),
-                quantity: quantity.trim() || undefined,
-                imageUrl,
-                imagePath,
+                quantity: quantity.trim() || '',
+                imageUrl: imageUrl || '',
+                imagePath: imagePath || '',
             });
             onClose();
         } catch (error) {
@@ -129,7 +163,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ visible, item, onC
                         {/* Large Image Preview */}
                         <TouchableOpacity 
                             style={styles.largeImageContainer} 
-                            onPress={pickImage}
+                            onPress={handleImagePress}
                             activeOpacity={isEditing ? 0.7 : 1}
                         >
                             {image ? (

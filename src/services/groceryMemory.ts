@@ -51,6 +51,33 @@ export const upsertMemoryItem = async (
 };
 
 /**
+ * Delete an item from the pair's memory.
+ */
+export const deleteMemoryItem = async (pairId: string, name: string) => {
+    if (!pairId) return;
+
+    const normalized = normalizeGroceryName(name);
+    if (!normalized) return;
+
+    const memoryId = getMemoryId(normalized);
+    const memoryRef = doc(db, 'pairs', pairId, 'item_memory', memoryId);
+
+    try {
+        const snap = await getDoc(memoryRef);
+        if (snap.exists()) {
+            const data = snap.data();
+            // Only delete if useCount is 1 or less (meaning it was likely just added or rarely used)
+            // Or if it's a direct rename correction. 
+            // For now, let's just delete it to satisfy the user's request for "not creating a new item".
+            await deleteDoc(memoryRef);
+            delete memoryCache[pairId];
+        }
+    } catch (error) {
+        console.error("Error deleting memory item:", error);
+    }
+};
+
+/**
  * Fetch top memory items for a pair, with session caching and decay filter.
  */
 export const fetchMemoryItems = async (pairId: string): Promise<GroceryMemory[]> => {

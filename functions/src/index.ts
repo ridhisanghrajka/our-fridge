@@ -9,20 +9,35 @@ const db = admin.firestore();
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
 // CALM RULES
-const INACTIVITY_WINDOW_MS = 12 * 60 * 60 * 1000; // 12 hours
+const INACTIVITY_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
 const RECENT_ACTIVITY_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
 
-async function sendPushNotification(token: string, title: string, body: string) {
+async function sendPushNotification(token: string, title: string, body: string, data?: any) {
   try {
-    await axios.post(EXPO_PUSH_URL, {
+    const response = await axios.post(EXPO_PUSH_URL, {
       to: token,
       title: title,
       body: body,
+      data: data,
       sound: "default",
     });
+
+    const receipt = response.data.data?.[0];
+    if (receipt?.status === "error") {
+      console.log(`Expo error: ${receipt.message}`);
+      if (receipt.details?.error === "DeviceNotRegistered") {
+        return "REMOVE_TOKEN";
+      }
+    }
+    
     console.log(`Notification sent to ${token}: ${title}`);
-  } catch (error) {
+    return "SUCCESS";
+  } catch (error: any) {
     console.error("Error sending push notification:", error);
+    if (error.response?.status === 400) {
+      return "REMOVE_TOKEN";
+    }
+    return "ERROR";
   }
 }
 
@@ -35,7 +50,7 @@ export const onItemAdded = functions.firestore
     const itemData = snapshot.data();
     if (!itemData) return;
 
-    const { pairId, createdBy } = itemData;
+    const { pairId, createdBy, name: itemName } = itemData;
     if (!pairId) return;
 
     // Get all users in the pair
@@ -45,10 +60,14 @@ export const onItemAdded = functions.firestore
     const now = admin.firestore.Timestamp.now();
 
     const promises = usersSnapshot.docs.map(async (doc) => {
-      // doc.id is the userName
-      if (doc.id === createdBy) return; // Skip the person who added it
-
+      // doc.id is the userName or userId (based on how it was saved)
+      // Actually, looking at the code, doc.id is userId
       const userData = doc.data();
+      
+      // Skip the person who added it
+      // Compare userId if available, otherwise fallback to name comparison
+      if (userData.userId === itemData.userId || doc.id === itemData.userId) return;
+
       if (!userData.pushToken || !userData.prefs?.notifyFridgeUpdates) return;
 
       const lastSeenAt = userData.lastSeenAt?.toMillis() || 0;
@@ -57,23 +76,31 @@ export const onItemAdded = functions.firestore
       const timeSinceNotif = now.toMillis() - lastNotifAt;
 
       // CALM LOGIC: 
-      // 1. Only notify if recipient hasn't been active for > 12h
-      // 2. AND hasn't received a fridge update in > 12h
+      // 1. Only notify if recipient hasn't been active for > 30m
+      // 2. AND hasn't received a fridge update in > 30m
       // 3. AND isn't currently active (seen > 10m ago)
       if (timeSinceSeen > INACTIVITY_WINDOW_MS && 
           timeSinceNotif > INACTIVITY_WINDOW_MS &&
           timeSinceSeen > RECENT_ACTIVITY_WINDOW_MS) {
         
-        await sendPushNotification(
+        const result = await sendPushNotification(
           userData.pushToken,
-          "The fridge was updated",
-          "There are new items on the list"
+          "New fridge item!",
+          `${createdBy} added ${itemName} to the list.`,
+          { screen: "GroceryList" }
         );
 
-        // Update lastNotifAt
-        await doc.ref.update({
-          "lastNotifAt.fridgeUpdated": now
-        });
+        if (result === "REMOVE_TOKEN") {
+          console.log(`Cleaning up dead token for user ${doc.id}`);
+          await doc.ref.update({
+            pushToken: admin.firestore.FieldValue.delete()
+          });
+        } else if (result === "SUCCESS") {
+          // Update lastNotifAt
+          await doc.ref.update({
+            "lastNotifAt.fridgeUpdated": now
+          });
+        }
       }
     });
 

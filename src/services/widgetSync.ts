@@ -4,7 +4,7 @@ import { GroceryItem } from '../types/GroceryItem';
 import { SharedNote, CanvasElement } from '../types/SharedNote';
 
 const { WidgetBridge } = NativeModules;
-const APP_GROUP = 'group.com.ridhisanghrajka.ourfridge';
+const APP_GROUP = 'group.ridhisanghrajka.ourfridge';
 
 export interface WidgetSnapshot {
   fridgeName: string;
@@ -22,13 +22,10 @@ export const syncDataToWidget = async (
   items: GroceryItem[],
   note: SharedNote | null,
   fridgeName: string = "Our Fridge",
-  isPremium: boolean = false,
-  trialStartedAt: Date | null = null
+  isPremium: boolean = false
 ) => {
   try {
-    // Check if trial is expired
-    const trialExpired = trialStartedAt ? (Date.now() - trialStartedAt.getTime()) > 7 * 24 * 60 * 60 * 1000 : false;
-    const isLocked = trialExpired && !isPremium;
+    const isLocked = !isPremium;
 
     // 1. Prepare items
     let activeItems: string[] = [];
@@ -36,9 +33,9 @@ export const syncDataToWidget = async (
     let noteElements: CanvasElement[] = [];
 
     if (isLocked) {
-      fridgeName = "Fridge Paused";
-      activeItems = ["Open app to continue"];
-      noteSnippet = "Your fridge is paused. Subscribe to keep sharing moments.";
+      fridgeName = "Our Fridge";
+      activeItems = ["Subscription required"];
+      noteSnippet = "Subscribe to see your shared list and notes on your home screen.";
     } else {
       activeItems = items
         .filter(item => !item.isDone)

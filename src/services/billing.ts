@@ -24,7 +24,7 @@ export const checkPremiumStatus = async (): Promise<boolean> => {
     try {
         const customerInfo = await Purchases.getCustomerInfo();
         // This matches your RevenueCat Entitlement ID
-        return typeof customerInfo.entitlements.active['Our Fridge - Pro'] !== "undefined";
+        return typeof customerInfo.entitlements.active['Our Fridge -  Pro'] !== "undefined";
     } catch (e) {
         return false;
     }
@@ -34,7 +34,8 @@ export const checkPremiumStatus = async (): Promise<boolean> => {
  * Handle a purchase through RevenueCat
  */
 export const purchasePackage = async (pkg: PurchasesPackage): Promise<CustomerInfo> => {
-    return await Purchases.purchasePackage(pkg);
+    const { customerInfo } = await Purchases.purchasePackage(pkg);
+    return customerInfo;
 };
 
 /**
