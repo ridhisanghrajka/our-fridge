@@ -20,7 +20,7 @@ import {
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
-import { GOOGLE_PLACES_API_KEY } from '../config/googleConfig';
+import { GOOGLE_PLACES_API_KEY } from '../services/google';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { 
   requestForegroundPermissions, 
