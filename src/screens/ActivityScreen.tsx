@@ -132,7 +132,10 @@ export const ActivityScreen: React.FC = () => {
                 lastGroup.userId === log.userId && 
                 lastGroup.actionType === log.actionType && 
                 isWithinTenMins) {
-                lastGroup.items.push(log.itemName);
+                // Only add the item if it's not already in the list for this group
+                if (!lastGroup.items.includes(log.itemName)) {
+                    lastGroup.items.push(log.itemName);
+                }
             } else {
                 groups.push({
                     id: log.id,

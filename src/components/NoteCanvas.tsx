@@ -1,10 +1,50 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, PanResponder, StyleSheet, TextInput, Platform, TouchableWithoutFeedback, Animated } from 'react-native';
-import Svg, { Path, Text as SvgText, G, Circle, Rect } from 'react-native-svg';
+import { View, PanResponder, StyleSheet, TextInput, Platform, TouchableWithoutFeedback, Animated, Text } from 'react-native';
+import Svg, { Path, Text as SvgText, G, Circle, Rect, TSpan } from 'react-native-svg';
 import { CanvasElement } from '../types/SharedNote';
 import { CountryMagnet } from './CountryMagnet';
 
 const VIRTUAL_WIDTH = 1000;
+const MAX_TEXT_WIDTH = 780;
+
+const wrapText = (text: string, maxCharsPerLine: number) => {
+    const lines: string[] = [];
+    let currentLine = '';
+
+    // Split by existing manual newlines first
+    const segments = text.split('\n');
+
+    segments.forEach(segment => {
+        const words = segment.split(' ');
+        
+        words.forEach(word => {
+            // If the word itself is longer than the limit, we must break the word
+            if (word.length > maxCharsPerLine) {
+                if (currentLine) lines.push(currentLine.trim());
+                
+                // Break the long word into chunks
+                for (let i = 0; i < word.length; i += maxCharsPerLine) {
+                    lines.push(word.substring(i, i + maxCharsPerLine));
+                }
+                currentLine = '';
+            } 
+            // Standard word wrapping
+            else if ((currentLine + word).length > maxCharsPerLine) {
+                lines.push(currentLine.trim());
+                currentLine = word + ' ';
+            } else {
+                currentLine += word + ' ';
+            }
+        });
+        
+        if (currentLine) {
+            lines.push(currentLine.trim());
+            currentLine = '';
+        }
+    });
+
+    return lines.length > 0 ? lines : [''];
+};
 
 interface NoteCanvasProps {
     width: number;
@@ -36,9 +76,9 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
     const [currentPath, setCurrentPath] = useState<string>('');
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [isTyping, setIsTyping] = useState(false);
-    const [typingText, setTypingText] = useState('');
-    const [typingPos, setTypingPos] = useState({ x: 0, y: 0 });
+    const [inputHeight, setInputHeight] = useState(0);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [measuredLines, setMeasuredLines] = useState<string[]>([]);
     const [animatingMagnetId, setAnimatingMagnetId] = useState<string | null>(null);
     const [snapAnimScale, setSnapAnimScale] = useState<number>(1);
     
@@ -123,10 +163,20 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
 
     const getBoxSize = (el: CanvasElement) => {
         if (el.type === 'text') {
-            const charWidth = (el.size || 210) * 0.6;
-            const w = Math.max(150, (el.data.length * charWidth) + 40);
-            const h = Math.max(100, (el.size || 210) + 40);
-            return { w: w * (el.scale || 1), h: h * (el.scale || 1) };
+            const scale = el.scale || 1;
+            const REFERENCE_WIDTH = 400;
+            const fontSize = (32 * (VIRTUAL_WIDTH / REFERENCE_WIDTH)) * scale;
+            const approxCharWidth = fontSize * 0.51;
+            
+            // Box size depends on the current data (which contains baked newlines)
+            const lines = el.data.split('\n');
+            const screenPaddingInVirtual = (40 * (VIRTUAL_WIDTH / REFERENCE_WIDTH));
+            
+            const maxLineChars = Math.max(...lines.map(l => l.length), 1);
+            const w = (maxLineChars * approxCharWidth) + screenPaddingInVirtual;
+            const h = (lines.length * fontSize * 1.2) + 40;
+            
+            return { w, h };
         }
         if (el.type === 'magnet') {
             const scale = el.scale || 1;
@@ -199,34 +249,23 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
     };
 
     const finishTyping = () => {
-        if (typingText.trim()) {
-            if (editingIdRef.current) {
-                // Update existing
-                const updated = elementsRef.current.map(el =>
-                    el.id === editingIdRef.current ? { ...el, data: typingText.trim() } : el
-                );
-                onElementsChange(updated);
-            } else {
-                // Create new
-                const newId = `text-${Date.now()}`;
-                const newElement: CanvasElement = {
-                    id: newId,
-                    type: 'text',
-                    data: typingText.trim(),
-                    x: typingPos.x,
-                    y: typingPos.y,
-                    color: strokeColor,
-                    size: 210,
-                    scale: 1
-                };
-                onElementsChange([...elementsRef.current, newElement]);
-                setSelectedId(newId);
-                selectedIdRef.current = newId;
+        const editingEl = elementsRef.current.find(el => el.id === editingIdRef.current);
+        if (editingEl) {
+            if (!editingEl.data.trim()) {
+                // Remove if empty
+                onElementsChange(elementsRef.current.filter(el => el.id !== editingIdRef.current));
+            } else if (measuredLines.length > 0) {
+                // Bake the exact OS-level wrapped lines into the data
+                // This ensures the layout is preserved regardless of canvas size
+                const bakedData = measuredLines.map(l => l.trimEnd()).join('\n').trim();
+                onElementsChange(elementsRef.current.map(el => 
+                    el.id === editingIdRef.current ? { ...el, data: bakedData } : el
+                ));
             }
         }
         setIsTyping(false);
-        setTypingText('');
         setEditingId(null);
+        setMeasuredLines([]);
     };
 
     const panResponder = useRef(
@@ -412,10 +451,24 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
                 const wasInteracting = hasMovedRef.current || isPinchingRef.current;
 
                 if (toolRef.current === 'pen' && currentPathRef.current) {
+                    let finalPath = currentPathRef.current;
+
+                    // If the path only contains the 'M' command (no 'L'), it's a tap/dot
+                    if (!finalPath.includes('L')) {
+                        // Extract the coordinates from "M 123.4 567.8"
+                        const parts = finalPath.split(' ');
+                        if (parts.length >= 3) {
+                            const x = parseFloat(parts[1]);
+                            const y = parseFloat(parts[2]);
+                            // Append a tiny line segment to make the round linecap visible
+                            finalPath += ` L ${(x + 0.1).toFixed(1)} ${(y + 0.1).toFixed(1)}`;
+                        }
+                    }
+
                     const newElement: CanvasElement = {
                         id: `path-${Date.now()}`,
                         type: 'path',
-                        data: currentPathRef.current,
+                        data: finalPath,
                         color: strokeColor,
                         size: strokeWidth
                     };
@@ -435,13 +488,32 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
                         if (hitText) {
                             if (hitText.id === initialSelectedIdRef.current) {
                                 // Already selected -> Edit
-                                setTypingPos({ x: hitText.x!, y: hitText.y! });
-                                setTypingText(hitText.data);
+                                // Strip any baked-in newlines for a clean edit experience
+                                const rawData = hitText.data.replace(/\n/g, ' ');
+                                const updated = elementsRef.current.map(el =>
+                                    el.id === hitText.id ? { ...el, data: rawData } : el
+                                );
+                                onElementsChange(updated);
                                 setEditingId(hitText.id);
                                 setIsTyping(true);
                             }
                         } else if (!selectedIdRef.current) {
-                            setTypingPos(tapPos);
+                            // Create new text element immediately
+                            const newId = `text-${Date.now()}`;
+                            const REFERENCE_WIDTH = 400;
+                            const virtualFontSize = 32 * (VIRTUAL_WIDTH / REFERENCE_WIDTH);
+                            const newElement: CanvasElement = {
+                                id: newId,
+                                type: 'text',
+                                data: '',
+                                x: tapPos.x,
+                                y: tapPos.y,
+                                color: strokeColor,
+                                size: virtualFontSize,
+                                scale: 1
+                            };
+                            onElementsChange([...elementsRef.current, newElement]);
+                            setEditingId(newId);
                             setIsTyping(true);
                         }
                     } else if (toolRef.current === 'magnet' && !selectedIdRef.current) {
@@ -518,6 +590,9 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
                 <Svg width={width} height={height} viewBox={`0 0 ${VIRTUAL_WIDTH} ${virtualHeight}`} pointerEvents="none">
                     {elements.map((el) => {
                         const isSelected = el.id === selectedId;
+                        const isBeingEdited = el.id === editingId;
+                        if (isBeingEdited) return null;
+                        
                         if (el.type === 'path') {
                             return (
                                 <Path
@@ -532,19 +607,35 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
                             );
                         } else if (el.type === 'text') {
                             const scale = el.scale || 1;
-                            const size = (el.size || 210) * scale;
+                            // Use a constant REFERENCE_WIDTH for all virtual scaling.
+                            // This ensures the note wraps identically on all screens.
+                            const REFERENCE_WIDTH = 400; 
+                            const fontSize = (32 * (VIRTUAL_WIDTH / REFERENCE_WIDTH)) * scale;
+                            
+                            // Use stored manual/baked newlines - this is the source of truth
+                            const lines = el.data.split('\n');
+                            const lineHeight = fontSize * 1.2;
+
                             return (
                                 <G key={el.id}>
                                     <SvgText
                                         x={el.x}
                                         y={el.y}
                                         fill={el.color || strokeColor}
-                                        fontSize={size}
+                                        fontSize={fontSize}
                                         fontFamily="Poppins-SemiBold"
                                         textAnchor="middle"
-                                        alignmentBaseline="central"
+                                        alignmentBaseline="middle"
                                     >
-                                        {el.data}
+                                        {lines.map((line, index) => (
+                                            <TSpan
+                                                key={index}
+                                                x={el.x}
+                                                dy={index === 0 ? -((lines.length - 1) * lineHeight) / 2 : lineHeight}
+                                            >
+                                                {line}
+                                            </TSpan>
+                                        ))}
                                     </SvgText>
                                     {isSelected && renderTransformBox(el)}
                                 </G>
@@ -598,26 +689,69 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
                 </Svg>
             </View>
 
-            {isTyping && (
+            {isTyping && editingId && (
                 <>
                     <TouchableWithoutFeedback onPress={finishTyping}>
                         <View style={StyleSheet.absoluteFill} />
                     </TouchableWithoutFeedback>
+                    
+                    {/* Hidden Measurement Component to capture OS-level wrapping */}
+                    <Text
+                        style={[styles.textInput, styles.hiddenMeasure, {
+                            width: (MAX_TEXT_WIDTH / VIRTUAL_WIDTH) * width,
+                            fontSize: (32 * (width / 400)) * (elements.find(el => el.id === editingId)?.scale || 1),
+                            lineHeight: (32 * (width / 400)) * (elements.find(el => el.id === editingId)?.scale || 1) * 1.2,
+                            fontFamily: 'Poppins-SemiBold',
+                        }]}
+                        onTextLayout={(e) => {
+                            setMeasuredLines(e.nativeEvent.lines.map(l => l.text));
+                        }}
+                    >
+                        {elements.find(el => el.id === editingId)?.data || ''}
+                    </Text>
+
                     <View style={[styles.typingContainer, {
-                        left: (typingPos.x / VIRTUAL_WIDTH) * width - (width * 0.4),
-                        top: (typingPos.y / virtualHeight) * height - 40,
-                        width: width * 0.8
+                        left: 0,
+                        right: 0,
+                        top: (elements.find(el => el.id === editingId)?.y || 0) / virtualHeight * height - (inputHeight / 2 || 40),
+                        alignItems: 'center',
+                        pointerEvents: 'box-none'
                     }]}>
                         <TextInput
-                            style={styles.textInput}
+                            style={[styles.textInput, (() => {
+                                const editingScale = elements.find(el => el.id === editingId)?.scale || 1;
+                                const fontSize = (32 * (width / 400)) * editingScale;
+                                const lineHeight = fontSize * 1.2;
+                                const maxLines = 6;
+                                const padding = 24; // paddingVertical * 2
+                                
+                                return {
+                                    minWidth: 100,
+                                    maxWidth: (MAX_TEXT_WIDTH / VIRTUAL_WIDTH) * width,
+                                    maxHeight: (lineHeight * maxLines) + padding,
+                                    backgroundColor: 'transparent',
+                                    borderWidth: 0,
+                                    shadowOpacity: 0,
+                                    elevation: 0,
+                                    fontSize: fontSize,
+                                    lineHeight: lineHeight,
+                                    fontFamily: 'Poppins-SemiBold',
+                                };
+                            })()]}
                             autoFocus
-                            value={typingText}
-                            onChangeText={setTypingText}
+                            multiline
+                            value={elements.find(el => el.id === editingId)?.data || ''}
+                            onChangeText={(text) => {
+                                const updated = elements.map(el =>
+                                    el.id === editingId ? { ...el, data: text } : el
+                                );
+                                onElementsChange(updated);
+                            }}
+                            onContentSizeChange={(e) => setInputHeight(e.nativeEvent.contentSize.height)}
                             onBlur={finishTyping}
-                            onSubmitEditing={finishTyping}
                             placeholder="..."
                             placeholderTextColor="#C9B2A3"
-                            returnKeyType="done"
+                            returnKeyType="default"
                         />
                     </View>
                 </>
@@ -634,18 +768,28 @@ const styles = StyleSheet.create({
     },
     textInput: {
         fontSize: 32,
-        fontFamily: 'Inter-Bold',
+        fontFamily: 'Poppins-SemiBold',
         color: '#6B4B3E',
         textAlign: 'center',
-        padding: 15,
-        backgroundColor: 'rgba(255,255,255,0.95)',
-        borderRadius: 12,
-        borderWidth: 2,
-        borderColor: '#6B4B3E',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        backgroundColor: 'rgba(255,255,255,0.98)',
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(107, 75, 62, 0.15)',
+        shadowColor: '#6B4B3E',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
         elevation: 5,
+        alignSelf: 'center',
+    },
+    hiddenMeasure: {
+        position: 'absolute',
+        opacity: 0,
+        zIndex: -1,
+        paddingVertical: 12,
+        paddingHorizontal: 20,
     },
 });
+

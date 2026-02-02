@@ -672,32 +672,41 @@ export const OnboardingScreen: React.FC = () => {
 
             case 7: // Join Form (Was Step 4)
                 return (
-                    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%' }}>
-                        <View style={styles.stepContainer}>
-                            <Text style={styles.title}>Join Partner</Text>
-                            <View style={styles.card}>
-                                <Text style={styles.label}>6-Digit Code</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="000000"
-                                    value={pairingCode}
-                                    onChangeText={setPairingCode}
-                                    keyboardType="number-pad"
-                                    maxLength={6}
-                                    autoFocus
-                                />
-                                <TouchableOpacity 
-                                    style={[styles.secondaryButton, isProcessing && styles.disabledButton]} 
-                                    onPress={handleJoin}
-                                    disabled={isProcessing}
-                                >
-                                    <Text style={styles.buttonText}>{isProcessing ? 'Joining...' : 'Join Fridge'}</Text>
+                    <KeyboardAvoidingView 
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+                        style={{ flex: 1, width: '100%' }}
+                    >
+                        <ScrollView 
+                            contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+                            keyboardShouldPersistTaps="handled"
+                        >
+                            <View style={styles.stepContainer}>
+                                <Text style={styles.title}>Join Partner</Text>
+                                <View style={styles.card}>
+                                    <Text style={styles.label}>6-Digit Code</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="000000"
+                                        value={pairingCode}
+                                        onChangeText={setPairingCode}
+                                        keyboardType="number-pad"
+                                        maxLength={6}
+                                        autoFocus
+                                        textContentType="oneTimeCode"
+                                    />
+                                    <TouchableOpacity 
+                                        style={[styles.secondaryButton, isProcessing && styles.disabledButton]} 
+                                        onPress={handleJoin}
+                                        disabled={isProcessing}
+                                    >
+                                        <Text style={styles.buttonText}>{isProcessing ? 'Joining...' : 'Join Fridge'}</Text>
+                                    </TouchableOpacity>
+                                </View>
+                                <TouchableOpacity style={styles.backButton} onPress={() => nextStep(5)}>
+                                    <Text style={styles.backButtonText}>Back</Text>
                                 </TouchableOpacity>
                             </View>
-                            <TouchableOpacity style={styles.backButton} onPress={() => nextStep(5)}>
-                                <Text style={styles.backButtonText}>Back</Text>
-                            </TouchableOpacity>
-                        </View>
+                        </ScrollView>
                     </KeyboardAvoidingView>
                 );
 

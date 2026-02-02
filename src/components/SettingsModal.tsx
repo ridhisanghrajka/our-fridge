@@ -424,11 +424,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
                             <Text style={styles.rowLabel}>Rate our fridge</Text>
                             <ExternalLinkIcon />
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.row} onPress={() => openLink('https://your-privacy-policy-link.com')}>
+                        <TouchableOpacity style={styles.row} onPress={() => openLink('https://ourfridgeapp.com/privacy/')}>
                             <Text style={styles.rowLabel}>Privacy policy</Text>
                             <ExternalLinkIcon />
                         </TouchableOpacity>
-                        <TouchableOpacity style={[styles.row, styles.noBorder]} onPress={() => openLink('https://your-contact-support-link.com')}>
+                        <TouchableOpacity style={styles.row} onPress={() => openLink('https://ourfridgeapp.com/terms/')}>
+                            <Text style={styles.rowLabel}>Terms & conditions</Text>
+                            <ExternalLinkIcon />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.row, styles.noBorder]} onPress={() => openLink('https://ourfridgeapp.com/support/')}>
                             <Text style={styles.rowLabel}>Contact support</Text>
                             <ExternalLinkIcon />
                         </TouchableOpacity>
