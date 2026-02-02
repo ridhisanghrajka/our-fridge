@@ -1,5 +1,5 @@
 import { collection, doc, getDoc, setDoc, getDocs, query, where, orderBy, limit, Timestamp, increment } from 'firebase/firestore';
-import { db } from '../../firebase.config';
+import { db } from './firebase';
 import { GroceryMemory } from '../types/GroceryMemory';
 import { normalizeGroceryName, getMemoryId } from '../utils/stringUtils';
 

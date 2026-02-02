@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { presentPaywall } from '../services/billing';
 import * as ImagePicker from 'expo-image-picker';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '../../firebase.config';
+import { storage } from '../services/firebase';
 import { SettingsModal } from '../components/SettingsModal';
 import { LocationPickerModal } from '../components/LocationPickerModal';
 import { WidgetInstructionsModal } from '../components/WidgetInstructionsModal';

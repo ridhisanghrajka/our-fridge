@@ -3,7 +3,7 @@ import firebase from 'firebase/compat/app';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { db, auth } from '../../firebase.config';
+import { db, auth } from '../services/firebase';
 import { Pair } from '../types/Pair';
 import { User } from '../types/User';
 import {

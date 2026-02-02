@@ -1,44 +1,17 @@
 import { registerRootComponent } from 'expo';
-// Use Firebase compat for React Native compatibility
-import firebase from 'firebase/compat/app';
-import 'firebase/compat/auth';
-import 'firebase/compat/firestore';
-import 'firebase/compat/storage';
-import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+// #region agent log
+fetch('http://127.0.0.1:7243/ingest/b1447da8-c5e0-4696-a6ce-533cceafc06d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.ts:2',message:'Index entry point reached',data:{env:process.env.NODE_ENV,platform:process.env.EXPO_OS},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+// #endregion
 
-const firebaseConfig = {
-    apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-    authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID
-};
-
-// Validate config
-if (!firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.appId) {
-    console.error('Firebase config is missing required fields:', firebaseConfig);
-    // During build, we might not have these, but we shouldn't crash the bundler
-}
-
-// Initialize Firebase using compat API
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
-
-// Initialize modular services
-export const auth = initializeAuth(firebase.app(), {
-    persistence: getReactNativePersistence(AsyncStorage)
-});
-export const db = getFirestore(firebase.app());
-export const storage = getStorage(firebase.app());
+// Initialize Firebase before anything else
+import './src/services/firebase';
 
 import App from './App';
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);
 // It also ensures that whether you load the app in Expo Go or in a native build,
 // the environment is set up appropriately
+// #region agent log
+fetch('http://127.0.0.1:7243/ingest/b1447da8-c5e0-4696-a6ce-533cceafc06d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.ts:15',message:'Registering root component',timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+// #endregion
 registerRootComponent(App);

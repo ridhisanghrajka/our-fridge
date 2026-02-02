@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '../../firebase.config';
+import { db } from '../services/firebase';
 import { updateNotificationPrefs, updateLocationReminder } from '../services/notifications';
 import { PairUser } from '../types/PairUser';
 import { registerGeofences } from '../services/locationService';

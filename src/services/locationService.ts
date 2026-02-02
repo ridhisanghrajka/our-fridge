@@ -3,7 +3,7 @@ import * as TaskManager from 'expo-task-manager';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
-import { db } from '../../firebase.config';
+import { db } from './firebase';
 
 export const GEOFENCING_TASK_NAME = 'OUR_FRIDGE_GEOFENCING_TASK';
 const PAIR_ID_KEY = '@OurFridge:pairId';

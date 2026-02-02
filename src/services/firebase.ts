@@ -17,20 +17,16 @@ const firebaseConfig = {
     appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID
 };
 
-// Validate config
-if (!firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.appId) {
-    console.error('Firebase config is missing required fields:', firebaseConfig);
-    throw new Error('Firebase configuration is incomplete. Check your environment variables.');
-}
-
 // Initialize Firebase using compat API
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
 
-// Export modular services for v9+ modular SDK usage
+// Initialize modular services
 export const auth = initializeAuth(firebase.app(), {
     persistence: getReactNativePersistence(AsyncStorage)
 });
 export const db = getFirestore(firebase.app());
 export const storage = getStorage(firebase.app());
+
+export default firebase;

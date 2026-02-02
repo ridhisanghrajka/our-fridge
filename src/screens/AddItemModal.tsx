@@ -3,7 +3,7 @@ import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet, KeyboardAvo
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '../../firebase.config';
+import { storage } from '../services/firebase';
 import { usePairing } from '../hooks/usePairing';
 import { useGroceryMemory } from '../hooks/useGroceryMemory';
 import { GroceryMemory } from '../types/GroceryMemory';

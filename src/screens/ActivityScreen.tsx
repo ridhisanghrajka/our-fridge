@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { collection, query, where, orderBy, limit, startAfter, getDocs, Timestamp, onSnapshot } from 'firebase/firestore';
-import { db } from '../../firebase.config';
+import { db } from '../services/firebase';
 import { usePairing } from '../hooks/usePairing';
 import { ActivityLog, ActivityAction } from '../types/ActivityLog';
 import { LinearGradient } from 'expo-linear-gradient';

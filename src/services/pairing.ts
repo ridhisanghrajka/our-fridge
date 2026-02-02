@@ -7,7 +7,7 @@ import {
     OAuthProvider, 
     signInWithCredential 
 } from 'firebase/auth';
-import { db, auth } from '../../firebase.config';
+import { db, auth } from './firebase';
 
 import { Pair } from '../types/Pair';
 import { User } from '../types/User';

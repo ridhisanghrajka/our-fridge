@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, Timestamp, orderBy } from 'firebase/firestore';
 import { ref, deleteObject, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../../firebase.config';
+import { db, storage } from '../services/firebase';
 import { GroceryItem } from '../types/GroceryItem';
 import { User } from '../types/User';
 import { upsertMemoryItem, deleteMemoryItem } from '../services/groceryMemory';

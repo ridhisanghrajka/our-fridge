@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { doc, onSnapshot, setDoc, Timestamp } from 'firebase/firestore';
-import { db } from '../../firebase.config';
+import { db } from '../services/firebase';
 import { SharedNote } from '../types/SharedNote';
 
 export const useSharedNote = (pairId: string | null, user: { uid: string, name: string | null } | null) => {

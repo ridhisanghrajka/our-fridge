@@ -1,5 +1,5 @@
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
-import { db } from '../../firebase.config';
+import { db } from './firebase';
 import { ActivityAction } from '../types/ActivityLog';
 
 export const logActivity = async (

@@ -3,7 +3,7 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { doc, setDoc, updateDoc, Timestamp, getDoc } from 'firebase/firestore';
-import { db } from '../../firebase.config';
+import { db } from './firebase';
 
 // Set up notification handler
 Notifications.setNotificationHandler({
