@@ -156,7 +156,7 @@ export const ProfileScreen: React.FC = () => {
     };
 
     const handlePresentPaywall = async () => {
-        const purchased = await presentPaywall();
+        const purchased = await presentPaywall(user?.uid);
         if (purchased) {
             await refreshPremiumStatus();
         }

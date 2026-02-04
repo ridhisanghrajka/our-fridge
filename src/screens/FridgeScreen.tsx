@@ -153,21 +153,21 @@ export const FridgeScreen: React.FC = () => {
                                 item={item}
                                 onToggle={async () => {
                                     if (!isPremium) {
-                                        await presentPaywall();
+                                        await presentPaywall(user?.uid);
                                         return;
                                     }
                                     toggleItem(item.id, item.isDone);
                                 }}
                                 onPress={async () => {
                                     if (!isPremium) {
-                                        await presentPaywall();
+                                        await presentPaywall(user?.uid);
                                         return;
                                     }
                                     setEditingItem(item);
                                 }}
                                 onDelete={async () => {
                                     if (!isPremium) {
-                                        await presentPaywall();
+                                        await presentPaywall(user?.uid);
                                         return;
                                     }
                                     deleteItem(item.id);
@@ -227,7 +227,7 @@ export const FridgeScreen: React.FC = () => {
                 style={[styles.noteContainer, { left: noteLeft, top: noteTop, width: noteWidth, height: noteHeight }]}
                 onPress={async () => {
                     if (!isPremium) {
-                        await presentPaywall();
+                        await presentPaywall(user?.uid);
                         return;
                     }
                     setWriteNoteVisible(true);
@@ -256,12 +256,12 @@ export const FridgeScreen: React.FC = () => {
                 <TouchableOpacity 
                     style={[styles.actionButton, { borderRadius: 16 * rScale, paddingVertical: 12 * rScale, paddingHorizontal: 20 * rScale }]} 
                     onPress={async () => {
-                        if (!isPremium) {
-                            await presentPaywall();
-                            return;
-                        }
-                        setAddItemVisible(true);
-                    }}
+                    if (!isPremium) {
+                        await presentPaywall(user?.uid);
+                        return;
+                    }
+                    setAddItemVisible(true);
+                }}
                 >
                     <Svg width={24 * rScale} height={24 * rScale} viewBox="0 0 24 24">
                         <G fill="none" fillRule="evenodd">

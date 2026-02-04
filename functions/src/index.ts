@@ -1,8 +1,14 @@
 import * as functions from "firebase-functions/v1";
 import * as admin from "firebase-admin";
 import axios from "axios";
+import * as cheerio from "cheerio";
+import OpenAI from "openai";
 
 admin.initializeApp();
+
+const openai = new OpenAI({
+  apiKey: functions.config().openai.key
+});
 
 const db = admin.firestore();
 
@@ -180,5 +186,143 @@ export const onSubscriptionUpdated = functions.https.onRequest(async (req, res) 
   } catch (error) {
     console.error("Error processing RevenueCat webhook:", error);
     res.status(500).send("Internal Server Error");
+  }
+});
+
+/**
+ * HTTP Function to scrape a recipe from a URL
+ */
+export const scrapeRecipe = functions.https.onRequest(async (req, res) => {
+  // 1. Basic Security/Method Check
+  if (req.method !== 'POST') {
+    res.status(405).send('Method Not Allowed');
+    return;
+  }
+
+  const { url } = req.body;
+  if (!url) {
+    res.status(400).send('URL is required');
+    return;
+  }
+
+  try {
+    // 2. Fetch the webpage
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+      },
+      timeout: 10000,
+    });
+    const $ = cheerio.load(response.data);
+
+    // 3. Find JSON-LD
+    let recipeData: any = null;
+    $('script[type="application/ld+json"]').each((_, element) => {
+      try {
+        const content = $(element).html();
+        if (!content) return;
+        
+        const json = JSON.parse(content);
+        
+        // Helper to find Recipe in an object or array
+        const findRecipe = (obj: any): any => {
+          if (!obj) return null;
+          
+          // Case 1: Direct Recipe object
+          if (obj['@type'] === 'Recipe' || (Array.isArray(obj['@type']) && obj['@type'].includes('Recipe'))) {
+            return obj;
+          }
+          
+          // Case 2: Array of objects
+          if (Array.isArray(obj)) {
+            for (const item of obj) {
+              const found = findRecipe(item);
+              if (found) return found;
+            }
+          }
+          
+          // Case 3: @graph object
+          if (obj['@graph'] && Array.isArray(obj['@graph'])) {
+            return findRecipe(obj['@graph']);
+          }
+          
+          return null;
+        };
+
+        const found = findRecipe(json);
+        if (found) {
+          recipeData = found;
+          return false; // break loop
+        }
+      } catch (e) {
+        // skip malformed JSON
+      }
+    });
+
+    if (!recipeData) {
+      res.status(404).send('No recipe data found on this page');
+      return;
+    }
+
+    // 4. Map to lean format
+    // Helper to extract image URL
+    const extractImage = (img: any): string | undefined => {
+      if (typeof img === 'string') return img;
+      if (Array.isArray(img)) return extractImage(img[0]);
+      if (img && typeof img === 'object') return img.url || img.contentUrl;
+      return undefined;
+    };
+
+    const rawIngredients = recipeData.recipeIngredient || [];
+    let parsedIngredients = [];
+
+    if (rawIngredients.length > 0) {
+      try {
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are a recipe parser. Convert raw ingredient strings into a clean JSON array of objects. Each object must have 'name' and 'quantity' fields. \n\nRules:\n1. Separate the quantity (numbers and units like cups, g, oz, lbs, etc.) from the ingredient name.\n2. In the 'name' field, remove words like 'of', 'peeled', 'beaten', 'melted' if they are at the beginning, but keep them if they are important (e.g. 'all-purpose flour').\n3. Handle ranges like '2 to 3' or '1/2 to 1' in the quantity field.\n4. If there is no quantity, leave it as an empty string.\n5. Wrap the result in a JSON object with a key named 'ingredients'."
+            },
+            {
+              role: "user",
+              content: JSON.stringify(rawIngredients)
+            }
+          ],
+          response_format: { type: "json_object" }
+        });
+
+        const parsedContent = JSON.parse(completion.choices[0].message.content || '{"ingredients": []}');
+        parsedIngredients = parsedContent.ingredients || [];
+      } catch (aiError) {
+        console.error('AI Parsing Error, falling back to basic parsing:', aiError);
+        // Fallback to basic parsing if AI fails
+        parsedIngredients = rawIngredients.map((ing: string) => {
+          const trimmed = ing.trim();
+          const quantityMatch = trimmed.match(/^(\d+\s*[\d\/]*|\d+\/\d+|¼|½|¾|⅓|⅔|⅛|⅜|⅝|⅞)\s*(cups?|tbsps?|tsps?|g|kg|oz|lbs?|ml|l|can|clove|pinch|piece)?\s+/i);
+          if (quantityMatch) {
+            const quantity = quantityMatch[0].trim();
+            const name = trimmed.substring(quantityMatch[0].length).trim();
+            return { name, quantity };
+          }
+          return { name: trimmed, quantity: '' };
+        });
+      }
+    }
+
+    const result = {
+      name: recipeData.name || $('title').text() || 'Imported Recipe',
+      ingredients: parsedIngredients,
+      imageUrl: extractImage(recipeData.image)
+    };
+
+    res.status(200).json(result);
+
+  } catch (error: any) {
+    console.error('Scrape Error:', error.message);
+    res.status(500).send(`Failed to parse recipe: ${error.message}`);
   }
 });

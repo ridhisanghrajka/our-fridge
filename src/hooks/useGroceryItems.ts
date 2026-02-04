@@ -37,6 +37,7 @@ export const useGroceryItems = (pairId: string | null, user: User | null) => {
                     quantity: data.quantity,
                     imageUrl: data.imageUrl,
                     imagePath: data.imagePath,
+                    recipeId: data.recipeId,
                     isDone: data.isDone,
                     createdBy: data.createdBy,
                     createdAt: data.createdAt?.toDate() || new Date(),
@@ -59,7 +60,7 @@ export const useGroceryItems = (pairId: string | null, user: User | null) => {
         return () => unsubscribe();
     }, [pairId]);
 
-    const addItem = async (name: string, emoji?: string, quantity?: string, imageUrl?: string, imagePath?: string) => {
+    const addItem = async (name: string, emoji?: string, quantity?: string, imageUrl?: string, imagePath?: string, recipeId?: string) => {
         if (!pairId) return;
 
         const newItemData: any = {
@@ -70,6 +71,7 @@ export const useGroceryItems = (pairId: string | null, user: User | null) => {
             quantity: quantity || '',
             imageUrl: imageUrl || '',
             imagePath: imagePath || '',
+            recipeId: recipeId || null,
             isDone: false,
             createdBy: userName || 'User',
             createdAt: Timestamp.now(),

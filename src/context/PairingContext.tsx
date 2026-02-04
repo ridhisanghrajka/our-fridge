@@ -21,6 +21,7 @@ import {
     updateUser,
     signUpWithEmail as signUpService,
     signInWithEmail as signInService,
+    sendResetEmail as sendResetEmailService,
     signInWithAppleCredential as signInWithAppleService,
     clearPairing,
     setHasAccount,
@@ -32,6 +33,7 @@ import { AppState, AppStateStatus } from 'react-native';
 
 interface PairingContextType {
     pairId: string | null;
+    pendingPairId: string | null;
     pair: Pair | null;
     user: User | null;
     userName: string | null;
@@ -48,10 +50,12 @@ interface PairingContextType {
     unpair: () => Promise<void>;
     updateFridgeName: (newName: string) => Promise<void>;
     updateUserName: (newName: string) => Promise<void>;
+    setUserName: (newName: string) => void;
     updateUserPhoto: (photoURL: string) => Promise<void>;
     updateCreatedAt: (newDate: Date) => Promise<void>;
     signUp: (email: string, password: string, name: string) => Promise<void>;
     signIn: (email: string, password: string) => Promise<void>;
+    sendPasswordReset: (email: string) => Promise<void>;
     signInWithApple: () => Promise<void>;
     logout: () => Promise<void>;
 }
@@ -60,6 +64,7 @@ const PairingContext = createContext<PairingContextType | undefined>(undefined);
 
 export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [pairId, setPairId] = useState<string | null>(null);
+    const [pendingPairId, setPendingPairId] = useState<string | null>(null);
     const [pair, setPair] = useState<Pair | null>(null);
     const [user, setUser] = useState<User | null>(null);
     const [userName, setUserName] = useState<string | null>(null);
@@ -71,10 +76,15 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
     const [isPremiumSDK, setIsPremiumSDK] = useState(false);
 
     const refreshPremiumStatus = async () => {
-        const { checkPremiumStatus } = require('../services/billing');
+        const { checkPremiumStatus, syncPremiumStatusToFirebase } = require('../services/billing');
         try {
             const status = await checkPremiumStatus();
             setIsPremiumSDK(status);
+            
+            // If SDK says premium, but Firestore doesn't know yet, sync it
+            if (status && user && (!user.isPremium || (pair && !pair.isPremiumEnabled))) {
+                await syncPremiumStatusToFirebase(user.uid, true);
+            }
         } catch (err) {
             console.error('Error refreshing premium status:', err);
         }
@@ -250,6 +260,16 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
         }
     };
 
+    const sendPasswordReset = async (email: string) => {
+        setError(null);
+        try {
+            await sendResetEmailService(email);
+        } catch (err: any) {
+            setError(err.message || 'Failed to send reset email');
+            throw err;
+        }
+    };
+
     const signInWithApple = async () => {
         setError(null);
         setUserLoading(true);
@@ -302,7 +322,7 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
             
             const code = generatePairingCode();
             await createPairService(code, auth.currentUser.uid, name, fridgeName || `${name}'s Fridge`);
-            setPairId(code);
+            setPendingPairId(code);
             setUserName(name);
             return code;
         } catch (err: any) {
@@ -372,6 +392,10 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
     };
 
     const completeOnboarding = () => {
+        if (pendingPairId) {
+            setPairId(pendingPairId);
+            setPendingPairId(null);
+        }
         setIsOnboarding(false);
         setHasAccount(true);
         setHasAccountState(true);
@@ -382,6 +406,7 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
     return (
         <PairingContext.Provider value={{
             pairId,
+            pendingPairId,
             pair,
             user,
             userName,
@@ -398,10 +423,12 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
             unpair,
             updateFridgeName,
             updateUserName,
+            setUserName,
             updateUserPhoto,
             updateCreatedAt,
             signUp,
             signIn,
+            sendPasswordReset,
             signInWithApple,
             logout,
         }}>

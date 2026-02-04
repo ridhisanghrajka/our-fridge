@@ -133,6 +133,11 @@ export const NoteCanvas: React.FC<NoteCanvasProps> = ({
         toolRef.current = currentTool;
         setSelectedId(null);
         selectedIdRef.current = null;
+        
+        // If we switch away from the text tool while typing, finish typing
+        if (currentTool !== 'text' && isTypingRef.current) {
+            finishTyping();
+        }
     }, [currentTool]);
 
     useEffect(() => {

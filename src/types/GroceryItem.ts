@@ -10,4 +10,5 @@ export interface GroceryItem {
     createdBy: string;
     createdAt: Date;
     updatedAt: Date;
+    recipeId?: string;
 }

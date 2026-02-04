@@ -9,9 +9,16 @@
     "strict": true,
     "target": "es2022",
     "esModuleInterop": true,
-    "lib": ["es2022"],
-    "rootDirs": ["src"]
+    "lib": [
+      "es2022"
+    ],
+    "rootDirs": [
+      "src"
+    ],
+    "moduleResolution": "node"
   },
   "compileOnSave": true,
-  "include": ["src"]
+  "include": [
+    "src"
+  ]
 }

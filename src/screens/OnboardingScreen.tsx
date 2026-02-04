@@ -127,7 +127,9 @@ export const OnboardingScreen: React.FC = () => {
         completeOnboarding,
         signUp,
         signIn,
+        sendPasswordReset,
         signInWithApple,
+        setUserName,
         loading,
         userLoading,
         error: authError,
@@ -156,9 +158,11 @@ export const OnboardingScreen: React.FC = () => {
         };
         checkStatusAndRedirect();
     }, [hasAccount, user, pairId]);
-    const [name, setName] = useState(userName || '');
+    const [nameError, setNameError] = useState('');
     const [email, setEmail] = useState('');
+    const [emailError, setEmailError] = useState('');
     const [password, setPassword] = useState('');
+    const [passwordError, setPasswordError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [fridgeName, setFridgeName] = useState('');
     const [pairingCode, setPairingCode] = useState('');
@@ -201,13 +205,41 @@ export const OnboardingScreen: React.FC = () => {
     };
 
     const handleSignUp = async () => {
-        if (!email.trim() || !password.trim() || !name.trim()) {
-            Alert.alert('Missing Details', 'Please enter your email, password, and name');
+        setNameError('');
+        setEmailError('');
+        setPasswordError('');
+
+        let hasError = false;
+        if (!userName?.trim()) {
+            setNameError('Please enter your name');
+            hasError = true;
+        }
+        if (!email.trim()) {
+            setEmailError('Please enter your email');
+            hasError = true;
+        } else if (!email.includes('@')) {
+            setEmailError('Please enter a valid email');
+            hasError = true;
+        }
+        if (!password.trim()) {
+            setPasswordError('Please enter a password');
+            hasError = true;
+        } else if (password.length < 6) {
+            setPasswordError('Password must be at least 6 characters');
+            hasError = true;
+        }
+
+        if (hasError) {
+            if (Platform.OS !== 'web') {
+                const Haptics = require('expo-haptics');
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            }
             return;
         }
+
         setIsProcessing(true);
         try {
-            await signUp(email.trim(), password.trim(), name.trim());
+            await signUp(email.trim(), password.trim(), userName?.trim() || '');
             nextStep(5); // Move to setup choice
         } catch (err: any) {
             Alert.alert('Sign Up Error', err.message || 'Failed to create account');
@@ -232,6 +264,26 @@ export const OnboardingScreen: React.FC = () => {
         }
     };
 
+    const handleForgotPassword = async () => {
+        if (!email.trim()) {
+            Alert.alert('Email Required', 'Please enter your email address to reset your password.');
+            return;
+        }
+        
+        setIsProcessing(true);
+        try {
+            await sendPasswordReset(email.trim());
+            Alert.alert(
+                'Reset Email Sent', 
+                'If an account exists for this email, you will receive a password reset link shortly.'
+            );
+        } catch (err: any) {
+            Alert.alert('Error', err.message || 'Failed to send reset email');
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
     const handleAppleSignIn = async () => {
         try {
             await signInWithApple();
@@ -244,9 +296,16 @@ export const OnboardingScreen: React.FC = () => {
     };
 
     const handleCreate = async () => {
+        const displayName = userName?.trim();
+        
+        if (!displayName) {
+            Alert.alert('Name Required', 'Please go back and enter your name to create a fridge.');
+            return;
+        }
+
         setIsProcessing(true);
         try {
-            const code = await createNewPair(userName || name.trim(), fridgeName.trim() || undefined);
+            const code = await createNewPair(displayName, fridgeName.trim() || undefined);
             setGeneratedCode(code);
             nextStep(8); // Move to Success/Share
         } catch (err: any) {
@@ -263,7 +322,7 @@ export const OnboardingScreen: React.FC = () => {
         }
         setIsProcessing(true);
         try {
-            await joinExistingPair(pairingCode.trim(), userName || name.trim());
+            await joinExistingPair(pairingCode.trim(), userName?.trim() || '');
             completeOnboarding(); 
         } catch (err: any) {
             Alert.alert('Error', err.message || 'Failed to join fridge');
@@ -460,30 +519,43 @@ export const OnboardingScreen: React.FC = () => {
                                 <View style={styles.card}>
                                     <Text style={styles.label}>Your Name</Text>
                                     <TextInput
-                                        style={styles.input}
-                                        placeholder="e.g. Ridhi"
-                                        value={name}
-                                        onChangeText={setName}
+                                        style={[styles.input, nameError ? styles.inputError : null]}
+                                        placeholder="e.g. Tom"
+                                        value={userName || ''}
+                                        onChangeText={(text) => {
+                                            setUserName(text);
+                                            if (nameError) setNameError('');
+                                        }}
                                         textContentType="name"
                                     />
+                                    {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
+
                                     <Text style={styles.label}>Email</Text>
                                     <TextInput
-                                        style={styles.input}
+                                        style={[styles.input, emailError ? styles.inputError : null]}
                                         placeholder="email@example.com"
                                         value={email}
-                                        onChangeText={setEmail}
+                                        onChangeText={(text) => {
+                                            setEmail(text);
+                                            if (emailError) setEmailError('');
+                                        }}
                                         autoCapitalize="none"
                                         keyboardType="email-address"
                                         textContentType="emailAddress"
                                         autoCorrect={false}
                                     />
+                                    {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+
                                     <Text style={styles.label}>Password</Text>
                                     <View style={styles.passwordInputContainer}>
                                         <TextInput
-                                            style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                                            style={[styles.input, { flex: 1, marginBottom: 0 }, passwordError ? styles.inputError : null]}
                                             placeholder="••••••••"
                                             value={password}
-                                            onChangeText={setPassword}
+                                            onChangeText={(text) => {
+                                                setPassword(text);
+                                                if (passwordError) setPasswordError('');
+                                            }}
                                             secureTextEntry={!showPassword}
                                             textContentType="newPassword"
                                             autoCapitalize="none"
@@ -496,9 +568,14 @@ export const OnboardingScreen: React.FC = () => {
                                             <EyeIcon open={showPassword} />
                                         </TouchableOpacity>
                                     </View>
+                                    {passwordError ? <Text style={[styles.errorText, { marginTop: 8 }]}>{passwordError}</Text> : null}
 
                                     <TouchableOpacity 
-                                        style={[styles.primaryButton, isProcessing && styles.disabledButton]} 
+                                        style={[
+                                            styles.primaryButton, 
+                                            (isProcessing || !userName || !email || !password) && styles.disabledButton,
+                                            { marginTop: 12 }
+                                        ]} 
                                         onPress={handleSignUp}
                                         disabled={isProcessing}
                                     >
@@ -574,6 +651,14 @@ export const OnboardingScreen: React.FC = () => {
                                             <EyeIcon open={showPassword} />
                                         </TouchableOpacity>
                                     </View>
+
+                                    <TouchableOpacity 
+                                        style={styles.forgotPasswordButton} 
+                                        onPress={handleForgotPassword}
+                                        disabled={isProcessing}
+                                    >
+                                        <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+                                    </TouchableOpacity>
 
                                     <TouchableOpacity 
                                         style={[styles.primaryButton, isProcessing && styles.disabledButton]} 
@@ -654,6 +739,10 @@ export const OnboardingScreen: React.FC = () => {
                                     value={fridgeName}
                                     onChangeText={setFridgeName}
                                     autoFocus
+                                    textContentType="none"
+                                    autoComplete="off"
+                                    autoCorrect={false}
+                                    spellCheck={false}
                                 />
                                 <TouchableOpacity 
                                     style={[styles.primaryButton, isProcessing && styles.disabledButton]} 
@@ -712,34 +801,39 @@ export const OnboardingScreen: React.FC = () => {
 
             case 8: // Success / Share (Was Step 5)
                 return (
-                    <View style={styles.stepContainer}>
-                        <View style={styles.iconCircle}>
-                            <Svg width={60} height={60} viewBox="0 0 24 24" fill="#6B4B3E">
-                                <Path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
-                            </Svg>
-                        </View>
-                        <Text style={styles.title}>Fridge Created!</Text>
-                        <Text style={styles.subtitle}>
-                            Share this code with your partner to start stocking your fridge together.
-                        </Text>
-
-                        <View style={styles.codeBox}>
-                            <Text style={styles.codeText}>{generatedCode || pairId}</Text>
-                        </View>
-
-                        <TouchableOpacity style={styles.primaryButton} onPress={handleCopyCode}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 8 }}>
-                                    <Path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-                                    <Path d="M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z" />
+                    <View style={{ flex: 1, width: '100%', paddingBottom: Platform.OS === 'ios' ? 40 : 24 }}>
+                        <View style={[styles.stepContainer, { flex: 1, justifyContent: 'center' }]}>
+                            <View style={styles.iconCircle}>
+                                <Svg width={60} height={60} viewBox="0 0 24 24" fill="#6B4B3E">
+                                    <Path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
                                 </Svg>
-                                <Text style={styles.buttonText}>Copy Code</Text>
                             </View>
-                        </TouchableOpacity>
+                            <Text style={styles.title}>Fridge Created!</Text>
+                            <Text style={styles.subtitle}>
+                                Share this code with your partner to start stocking your fridge together.
+                            </Text>
 
-                        <TouchableOpacity style={styles.textLinkButton} onPress={completeOnboarding}>
-                            <Text style={styles.textLink}>Next</Text>
-                        </TouchableOpacity>
+                            <View style={styles.codeBox}>
+                                <Text style={styles.codeText}>{generatedCode || pairId}</Text>
+                            </View>
+
+                            <TouchableOpacity style={styles.textLinkButton} onPress={handleShare}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#6B4B3E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 8, opacity: 0.6 }}>
+                                        <Path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                                        <Path d="M16 6l-4-4-4 4" />
+                                        <Path d="M12 2v13" />
+                                    </Svg>
+                                    <Text style={styles.textLink}>Share Code</Text>
+                                </View>
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={{ paddingHorizontal: 24 }}>
+                            <TouchableOpacity style={[styles.primaryButton, styles.buttonGlow]} onPress={completeOnboarding}>
+                                <Text style={styles.buttonText}>Next</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 );
 
@@ -986,6 +1080,18 @@ const styles = StyleSheet.create({
         borderColor: '#DCC8B9',
         marginBottom: 20,
     },
+    inputError: {
+        borderColor: '#E79B74',
+        borderWidth: 1.5,
+    },
+    errorText: {
+        color: '#E79B74',
+        fontSize: 12,
+        fontFamily: 'Inter-SemiBold',
+        marginTop: -16,
+        marginBottom: 16,
+        marginLeft: 4,
+    },
     backButton: {
         padding: 12,
     },
@@ -1105,6 +1211,19 @@ const styles = StyleSheet.create({
         fontSize: 14,
         opacity: 0.4,
         textDecorationLine: 'none',
+    },
+    forgotPasswordButton: {
+        alignSelf: 'flex-end',
+        marginTop: -12,
+        marginBottom: 24,
+        paddingVertical: 4,
+    },
+    forgotPasswordText: {
+        color: '#6B4B3E',
+        fontSize: 14,
+        fontFamily: 'Inter-SemiBold',
+        opacity: 0.6,
+        textDecorationLine: 'underline',
     },
     footerContainer: {
         paddingHorizontal: 24,
