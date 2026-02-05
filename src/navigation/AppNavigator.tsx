@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import * as Linking from 'expo-linking';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { FridgeScreen } from '../screens/FridgeScreen';
@@ -13,6 +13,7 @@ import { AddRecipeScreen } from '../screens/AddRecipeScreen';
 import { ImportRecipeScreen } from '../screens/ImportRecipeScreen';
 import { WidgetSynchronizer } from '../components/WidgetSynchronizer';
 import { usePairing } from '../hooks/usePairing';
+import { useShareStore } from '../services/shareStore';
 import { View, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
@@ -23,8 +24,15 @@ const linking = {
     prefixes: [Linking.createURL('/'), 'ourfridge://'],
     config: {
         screens: {
-            Fridge: 'fridge',
-            Profile: 'profile',
+            MainTabs: {
+                screens: {
+                    Fridge: 'fridge',
+                    Profile: 'profile',
+                    Activity: 'activity',
+                    Meals: 'meals',
+                }
+            },
+            ImportRecipe: 'import',
         },
     },
 };
@@ -130,8 +138,28 @@ const MainTabs = () => {
 
 export const AppNavigator: React.FC = () => {
     const { pairId, userName, loading, userLoading, user, unpair, isOnboarding } = usePairing();
+    const navigationRef = useNavigationContainerRef();
+    const pendingRecipeUrl = useShareStore((state) => state.pendingRecipeUrl);
 
-    if (loading || userLoading) {
+    useEffect(() => {
+        if (pendingRecipeUrl && navigationRef.isReady()) {
+            // Use a small timeout to ensure the navigator is fully settled
+            const timer = setTimeout(() => {
+                // @ts-ignore
+                navigationRef.reset({
+                    index: 0,
+                    routes: [
+                        { name: 'MainTabs', state: { routes: [{ name: 'Meals' }] } },
+                        { name: 'ImportRecipe' }
+                    ],
+                });
+            }, 100);
+            
+            return () => clearTimeout(timer);
+        }
+    }, [pendingRecipeUrl, navigationRef]);
+
+    if ((loading || userLoading) && !pairId) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#6B4B3E" />
@@ -144,7 +172,7 @@ export const AppNavigator: React.FC = () => {
     }
 
     return (
-        <NavigationContainer linking={linking}>
+        <NavigationContainer linking={linking} ref={navigationRef}>
             {pairId && <WidgetSynchronizer />}
             <Stack.Navigator screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="MainTabs" component={MainTabs} />

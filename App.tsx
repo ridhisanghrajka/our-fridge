@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Asset } from 'expo-asset';
 import * as SplashScreen from 'expo-splash-screen';
+import { useShareIntent } from "expo-share-intent";
+import { useShareStore } from './src/services/shareStore';
 import { 
   useFonts, 
   Poppins_600SemiBold, 
@@ -24,6 +26,9 @@ SplashScreen.preventAutoHideAsync();
 
 export default function App() {
   const [assetsReady, setAssetsReady] = useState(false);
+  const { hasShareIntent, shareIntent, resetShareIntent, error } = useShareIntent();
+  const setPendingRecipeUrl = useShareStore((state) => state.setPendingRecipeUrl);
+  const lastProcessedUrl = React.useRef<string | null>(null);
   
   const [fontsLoaded] = useFonts({
     'Poppins-SemiBold': Poppins_600SemiBold,
@@ -63,6 +68,21 @@ export default function App() {
 
     prepare();
   }, []);
+
+  useEffect(() => {
+    if (hasShareIntent && (shareIntent.type === "text" || shareIntent.type === "webpage" || shareIntent.type === "weburl" || shareIntent.type === "file")) {
+      // The library seems to use webUrl (camelCase) or text for the actual value
+      const url = shareIntent.value?.trim() || (shareIntent as any).webUrl || (shareIntent as any).text;
+      
+      if (url && url !== lastProcessedUrl.current) {
+        lastProcessedUrl.current = url;
+        setPendingRecipeUrl(url);
+        
+        // Reset the native intent immediately after capturing the payload
+        resetShareIntent();
+      }
+    }
+  }, [hasShareIntent, shareIntent, setPendingRecipeUrl, resetShareIntent]);
 
   useEffect(() => {
     if (fontsLoaded && assetsReady) {

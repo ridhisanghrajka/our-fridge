@@ -16,6 +16,21 @@ import { User } from '../types/User';
 const PAIR_ID_KEY = '@OurFridge:pairId';
 const USER_NAME_KEY = '@OurFridge:userName';
 const HAS_ACCOUNT_KEY = '@OurFridge:hasAccount';
+const FRIDGE_NAME_KEY = '@OurFridge:fridgeName';
+
+/**
+ * Set the fridge name in local storage
+ */
+export const setStoredFridgeName = async (name: string): Promise<void> => {
+    await AsyncStorage.setItem(FRIDGE_NAME_KEY, name);
+};
+
+/**
+ * Get the stored fridge name from local storage
+ */
+export const getStoredFridgeName = async (): Promise<string | null> => {
+    return await AsyncStorage.getItem(FRIDGE_NAME_KEY);
+};
 
 /**
  * Set the hasAccount flag in local storage

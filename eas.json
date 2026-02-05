@@ -12,8 +12,7 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": false,
-      "preBuild": "npm run fix-xcode"
+      "autoIncrement": false
     }
   },
   "submit": {

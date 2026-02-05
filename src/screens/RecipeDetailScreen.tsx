@@ -108,7 +108,7 @@ interface RecipeDetailScreenProps {
 
 export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: initialRecipe, onClose }) => {
     const { pairId, user } = usePairing();
-    const { markIngredientAdded, markIngredientRemoved, deleteRecipe, updateRecipe, recipes } = useRecipes(pairId, user);
+    const { deleteRecipe, updateRecipe, recipes } = useRecipes(pairId, user);
     const { addItem, items: groceryItems, deleteItem: deleteGroceryItem } = useGroceryItems(pairId, user);
     
     const [isEditing, setIsEditing] = useState(false);
@@ -314,15 +314,25 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: 
         setActiveAnimations(prev => prev.filter(anim => anim.id !== id));
     };
 
+    const isIngredientInList = (ingredientName: string) => {
+        return groceryItems.some(item => 
+            item.recipeId === initialRecipe.id && 
+            item.name.toLowerCase() === ingredientName.toLowerCase() &&
+            !item.isDone
+        );
+    };
+
     const handleIngredientAction = async (ingredient: RecipeIngredient, event: any) => {
         if (isEditing) return;
 
-        if (ingredient.addedToList) {
-            await markIngredientRemoved(initialRecipe.id, ingredient.id);
+        const isAdded = isIngredientInList(ingredient.name);
+
+        if (isAdded) {
             // Delete all grocery items for this recipe with this name (handles duplicates)
             const itemsToDelete = groceryItems.filter(item => 
                 item.recipeId === initialRecipe.id && 
-                item.name.toLowerCase() === ingredient.name.toLowerCase()
+                item.name.toLowerCase() === ingredient.name.toLowerCase() &&
+                !item.isDone
             );
             if (itemsToDelete.length > 0) {
                 await Promise.all(itemsToDelete.map(item => deleteGroceryItem(item.id)));
@@ -334,28 +344,24 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: 
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             });
 
-            await markIngredientAdded(initialRecipe.id, ingredient.id);
             await addItem(ingredient.name, undefined, ingredient.quantity, ingredient.imageUrl, ingredient.imagePath, initialRecipe.id);
         }
     };
 
-    const allAdded = ingredients.length > 0 && ingredients.every(ing => ing.addedToList);
+    const allAdded = ingredients.length > 0 && ingredients.every(ing => isIngredientInList(ing.name));
 
     const handleBulkAction = async () => {
         if (isEditing) return;
 
         if (allAdded) {
-            const updatedIngredients = ingredients.map(ing => ({ ...ing, addedToList: false }));
-            await updateRecipe(initialRecipe.id, { ingredients: updatedIngredients });
-
-            const itemsToDelete = groceryItems.filter(item => item.recipeId === initialRecipe.id);
+            const itemsToDelete = groceryItems.filter(item => item.recipeId === initialRecipe.id && !item.isDone);
             await Promise.all(itemsToDelete.map(item => deleteGroceryItem(item.id)));
             
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } else {
             // Trigger animations for all items that are about to be added
             ingredients.forEach((ing, index) => {
-                if (!ing.addedToList) {
+                if (!isIngredientInList(ing.name)) {
                     const ref = checkboxRefs.current.get(ing.id);
                     if (ref) {
                         // Delay animations slightly so they don't all start exactly at the same time
@@ -368,11 +374,8 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: 
                 }
             });
 
-            const updatedIngredients = ingredients.map(ing => ({ ...ing, addedToList: true }));
-            await updateRecipe(initialRecipe.id, { ingredients: updatedIngredients });
-
             for (const ing of ingredients) {
-                if (!ing.addedToList) {
+                if (!isIngredientInList(ing.name)) {
                     await addItem(ing.name, undefined, ing.quantity, ing.imageUrl, ing.imagePath, initialRecipe.id);
                 }
             }
@@ -511,10 +514,10 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: 
                                                     if (ref) checkboxRefs.current.set(ingredient.id, ref);
                                                     else checkboxRefs.current.delete(ingredient.id);
                                                 }}
-                                                style={[styles.checkbox, ingredient.addedToList && styles.checkboxFilled]}
+                                                style={[styles.checkbox, isIngredientInList(ingredient.name) && styles.checkboxFilled]}
                                                 onPress={(e) => handleIngredientAction(ingredient, e)}
                                             >
-                                                {ingredient.addedToList && (
+                                                {isIngredientInList(ingredient.name) && (
                                                     <Svg width={16} height={16} viewBox="0 0 24 24">
                                                         <Path fill="#FFF7EE" d="M17 2H7c-1.1 0-2 .9-2 2v15a2 2 0 0 0 2 2v1h2v-1h6v1h2v-1c1.11 0 2-.89 2-2V4a2 2 0 0 0-2-2m-7 13H8v-5h2z" />
                                                     </Svg>
@@ -545,11 +548,11 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: 
                                                 </View>
                                             ) : (
                                                 <>
-                                                    <Text style={[styles.ingredientName, ingredient.addedToList && styles.ingredientNameAdded]}>
+                                                    <Text style={[styles.ingredientName, isIngredientInList(ingredient.name) && styles.ingredientNameAdded]}>
                                                         {ingredient.name}
                                                     </Text>
                                                     {ingredient.quantity && (
-                                                        <Text style={[styles.ingredientQuantity, ingredient.addedToList && styles.ingredientQuantityAdded]}>
+                                                        <Text style={[styles.ingredientQuantity, isIngredientInList(ingredient.name) && styles.ingredientQuantityAdded]}>
                                                             {ingredient.quantity}
                                                         </Text>
                                                     )}

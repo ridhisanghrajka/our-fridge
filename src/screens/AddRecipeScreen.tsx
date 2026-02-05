@@ -25,7 +25,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 export const AddRecipeScreen: React.FC = () => {
     const navigation = useNavigation();
     const route = useRoute<any>();
-    const { pairId, user } = usePairing();
+    const { pairId, user, isPremium } = usePairing();
     const { addRecipe } = useRecipes(pairId, user);
 
     const initialData = route.params?.initialData;
@@ -123,6 +123,18 @@ export const AddRecipeScreen: React.FC = () => {
     };
 
     const handleSave = async () => {
+        if (!isPremium) {
+            Alert.alert(
+                'Pro Feature', 
+                'Adding recipes is a Pro feature. Upgrade to Our Fridge Pro to save your favorite meals!',
+                [
+                    { text: 'Not Now', style: 'cancel' },
+                    { text: 'Go Pro', onPress: () => navigation.navigate('Profile' as never) }
+                ]
+            );
+            return;
+        }
+
         if (!recipeName.trim()) {
             Alert.alert('Missing Name', 'Please enter a recipe name');
             return;

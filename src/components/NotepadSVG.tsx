@@ -37,15 +37,15 @@ export const NotepadSVG: React.FC<NotepadSVGProps> = ({ width = 1000, height = 1
 
             {/* Paper */}
             <G>
-                <Path d="M74.5 120 Q500 40 925.5 120 Q970 125 970 160 V1450 Q970 1515 887.5 1530 Q500 1585 112.5 1530 Q30 1515 30 1450 V160 Q30 125 74.5 120 Z"
+                <Path d="M74.5 80 Q500 0 925.5 80 Q970 85 970 120 V1450 Q970 1515 887.5 1530 Q500 1585 112.5 1530 Q30 1515 30 1450 V120 Q30 85 74.5 80 Z"
                     fill="url(#paperFill)" stroke="#6B4B3E" strokeWidth={10} strokeLinecap="round" strokeLinejoin="round" />
 
-                <Path d="M74.5 120 Q500 40 925.5 120 Q970 125 970 160 V1450 Q970 1515 887.5 1530 Q500 1585 112.5 1530 Q30 1515 30 1450 V160 Q30 125 74.5 120 Z"
+                <Path d="M74.5 80 Q500 0 925.5 80 Q970 85 970 120 V1450 Q970 1515 887.5 1530 Q500 1585 112.5 1530 Q30 1515 30 1450 V120 Q30 85 74.5 80 Z"
                     fill="url(#paperInner)" opacity={0.40} />
             </G>
 
             {/* Clip */}
-            <G filter="url(#clipShadow)">
+            <G filter="url(#clipShadow)" transform="translate(0 -30)">
                 <Path d="M415 55 Q500 10 585 55 Q610 70 610 95 V155 Q610 185 580 185 H420 Q390 185 390 155 V95 Q390 70 415 55 Z"
                     fill="url(#clipFill)" stroke="#6B4B3E" strokeWidth={10} strokeLinecap="round" strokeLinejoin="round" />
                 <Circle cx="500" cy="112" r="18" fill="#F7E7DC" stroke="#6B4B3E" strokeWidth={8} strokeLinecap="round" strokeLinejoin="round" />
@@ -53,7 +53,7 @@ export const NotepadSVG: React.FC<NotepadSVGProps> = ({ width = 1000, height = 1
             </G>
 
             {/* Header panel */}
-            <G transform="translate(100 155)">
+            <G transform="translate(100 115)">
                 <Path d="M40 0 H760 Q800 0 800 40 V150 Q800 185 765 185 H35 Q0 185 0 150 V40 Q0 0 40 0 Z"
                     fill="#F3E3D7" stroke="#6B4B3E" strokeWidth={10} strokeLinecap="round" strokeLinejoin="round" />
                 {title && (

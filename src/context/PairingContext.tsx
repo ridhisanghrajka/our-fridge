@@ -25,7 +25,9 @@ import {
     signInWithAppleCredential as signInWithAppleService,
     clearPairing,
     setHasAccount,
-    getHasAccount
+    getHasAccount,
+    getStoredFridgeName,
+    setStoredFridgeName
 } from '../services/pairing';
 import { initializeBilling } from '../services/billing';
 import { registerForPushNotificationsAsync, updateUserMetadata } from '../services/notifications';
@@ -53,6 +55,7 @@ interface PairingContextType {
     setUserName: (newName: string) => void;
     updateUserPhoto: (photoURL: string) => Promise<void>;
     updateCreatedAt: (newDate: Date) => Promise<void>;
+    cachedFridgeName: string | null;
     signUp: (email: string, password: string, name: string) => Promise<void>;
     signIn: (email: string, password: string) => Promise<void>;
     sendPasswordReset: (email: string) => Promise<void>;
@@ -66,6 +69,7 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
     const [pairId, setPairId] = useState<string | null>(null);
     const [pendingPairId, setPendingPairId] = useState<string | null>(null);
     const [pair, setPair] = useState<Pair | null>(null);
+    const [cachedFridgeName, setCachedFridgeName] = useState<string | null>(null);
     const [user, setUser] = useState<User | null>(null);
     const [userName, setUserName] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -101,9 +105,11 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
                 const storedPairId = await getStoredPairId();
                 const storedUserName = await getStoredUserName();
                 const storedHasAccount = await getHasAccount();
+                const storedFridgeName = await getStoredFridgeName();
                 
                 if (storedHasAccount) setHasAccountState(true);
                 if (storedPairId) setPairId(storedPairId);
+                if (storedFridgeName) setCachedFridgeName(storedFridgeName);
                 if (storedUserName) {
                     setUserName(storedUserName);
                     setIsOnboarding(false);
@@ -212,15 +218,23 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
         const unsubscribe = onSnapshot(pairRef, (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.data();
+                    const fridgeName = data.fridgeName || '';
                     setPair({
                         id: snapshot.id,
                         memberUids: data.memberUids || [],
                         memberNames: data.memberNames || {},
                         memberPhotos: data.memberPhotos || {},
-                        fridgeName: data.fridgeName || '',
+                        fridgeName: fridgeName,
                         isPremiumEnabled: data.isPremiumEnabled || false,
                         createdAt: data.createdAt?.toDate() || new Date(),
                     });
+                    // Update cache
+                    if (fridgeName) {
+                        setCachedFridgeName(fridgeName);
+                        setStoredFridgeName(fridgeName).catch(err => 
+                            console.error("Error caching fridge name:", err)
+                        );
+                    }
             } else if (pairId) {
                 console.log("Pair document does not exist for ID:", pairId);
                 setPair(null);
@@ -426,6 +440,7 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
             setUserName,
             updateUserPhoto,
             updateCreatedAt,
+            cachedFridgeName,
             signUp,
             signIn,
             sendPasswordReset,

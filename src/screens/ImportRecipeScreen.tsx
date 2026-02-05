@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     Text,
@@ -15,14 +15,41 @@ import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
 import LottieView from 'lottie-react-native';
+import { useShareStore } from '../services/shareStore';
 
 export const ImportRecipeScreen: React.FC = () => {
     const navigation = useNavigation<any>();
+    const { isPremium } = usePairing();
     const [importUrl, setImportUrl] = useState('');
     const [importing, setImporting] = useState(false);
+    const pendingRecipeUrl = useShareStore((state) => state.pendingRecipeUrl);
+    const clearPendingRecipeUrl = useShareStore((state) => state.clearPendingRecipeUrl);
+    const hasAutoTriggered = useRef(false);
 
-    const handleImportFromWeb = async () => {
-        if (!importUrl.trim()) {
+    useEffect(() => {
+        if (pendingRecipeUrl && !hasAutoTriggered.current) {
+            hasAutoTriggered.current = true;
+            setImportUrl(pendingRecipeUrl);
+            handleImportFromWeb(pendingRecipeUrl);
+            clearPendingRecipeUrl();
+        }
+    }, [pendingRecipeUrl]);
+
+    const handleImportFromWeb = async (urlOverride?: string) => {
+        if (!isPremium) {
+            Alert.alert(
+                'Pro Feature', 
+                'Importing recipes from the web is a Pro feature. Upgrade to Our Fridge Pro to unlock it!',
+                [
+                    { text: 'Not Now', style: 'cancel' },
+                    { text: 'Go Pro', onPress: () => navigation.navigate('Profile' as never) }
+                ]
+            );
+            return;
+        }
+
+        const urlToUse = urlOverride || importUrl;
+        if (!urlToUse.trim()) {
             Alert.alert('Error', 'Please paste a recipe URL');
             return;
         }
@@ -34,7 +61,7 @@ export const ImportRecipeScreen: React.FC = () => {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ url: importUrl }),
+                body: JSON.stringify({ url: urlToUse }),
             });
 
             if (!response.ok) {
@@ -62,12 +89,13 @@ export const ImportRecipeScreen: React.FC = () => {
     };
 
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
             <LinearGradient colors={['#DDF3FF', '#FFF6EA']} style={styles.container}>
-                <KeyboardAvoidingView 
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={styles.content}
-                >
+                <SafeAreaView style={styles.safeArea}>
+                    <KeyboardAvoidingView 
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        style={styles.content}
+                    >
                     <View style={styles.header}>
                         <TouchableOpacity 
                             onPress={() => navigation.goBack()}
@@ -82,7 +110,7 @@ export const ImportRecipeScreen: React.FC = () => {
                     </View>
 
                     <View style={styles.topSection}>
-                        <Text style={styles.sectionTitle}>Paste Link</Text>
+                        <Text style={styles.sectionTitle}>1. Paste Link</Text>
                         <View style={styles.importContainer}>
                             <TextInput
                                 style={styles.importInput}
@@ -96,7 +124,7 @@ export const ImportRecipeScreen: React.FC = () => {
                             />
                             <TouchableOpacity 
                                 style={styles.importSubmitBtn} 
-                                onPress={handleImportFromWeb}
+                                onPress={() => handleImportFromWeb()}
                                 disabled={importing}
                             >
                                 {importing ? (
@@ -108,29 +136,36 @@ export const ImportRecipeScreen: React.FC = () => {
                         </View>
                     </View>
 
+                    <View style={styles.dividerContainer}>
+                        <View style={styles.line} />
+                        <View style={styles.orCircle}>
+                            <Text style={styles.orText}>OR</Text>
+                        </View>
+                        <View style={styles.line} />
+                    </View>
+
                     <View style={styles.bottomSection}>
-                        <Text style={styles.sectionTitle}>Or use Share Extension</Text>
-                        <Text style={styles.subtext}>Share any recipe link from your browser to OurFridge</Text>
+                        <Text style={styles.sectionTitle}>2. Use Share Extension</Text>
+                        <Text style={styles.subtext}>Share any recipe link from your browser to Our Fridge</Text>
                         <View style={styles.animationContainer}>
-                            {/* Lottie animation will go here */}
                             <LottieView
-                                source={require('../../assets/animations/scene1.json')}
+                                source={require('../../assets/animations/Scene-1 (5).json')}
                                 autoPlay
                                 loop
                                 style={styles.lottie}
                             />
                         </View>
                     </View>
-                </KeyboardAvoidingView>
+                    </KeyboardAvoidingView>
+                </SafeAreaView>
             </LinearGradient>
-        </SafeAreaView>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#DDF3FF',
     },
     container: {
         flex: 1,
@@ -156,6 +191,7 @@ const styles = StyleSheet.create({
     topSection: {
         marginTop: 20,
         marginBottom: 40,
+        alignItems: 'center',
     },
     sectionTitle: {
         fontSize: 18,
@@ -199,7 +235,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
     bottomSection: {
-        flex: 1,
+        flex: 1.5,
         alignItems: 'center',
     },
     subtext: {
@@ -209,13 +245,37 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginBottom: 24,
     },
-    animationContainer: {
+    dividerContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginVertical: 20,
         width: '100%',
+    },
+    line: {
         flex: 1,
+        height: 1,
+        backgroundColor: '#F3E5D8',
+    },
+    orCircle: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         backgroundColor: '#FFFFFF',
-        borderRadius: 30,
         borderWidth: 1,
         borderColor: '#F3E5D8',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginHorizontal: 12,
+    },
+    orText: {
+        fontSize: 12,
+        fontFamily: 'Poppins-Bold',
+        color: '#A89B8F',
+    },
+    animationContainer: {
+        width: '120%',
+        flex: 1,
+        borderRadius: 30,
         overflow: 'hidden',
         marginBottom: 40,
     },

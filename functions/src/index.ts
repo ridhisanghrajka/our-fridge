@@ -282,10 +282,37 @@ export const scrapeRecipe = functions.https.onRequest(async (req, res) => {
       try {
         const completion = await openai.chat.completions.create({
           model: "gpt-4o-mini",
+          temperature: 0,
           messages: [
             {
               role: "system",
-              content: "You are a recipe parser. Convert raw ingredient strings into a clean JSON array of objects. Each object must have 'name' and 'quantity' fields. \n\nRules:\n1. Separate the quantity (numbers and units like cups, g, oz, lbs, etc.) from the ingredient name.\n2. In the 'name' field, remove words like 'of', 'peeled', 'beaten', 'melted' if they are at the beginning, but keep them if they are important (e.g. 'all-purpose flour').\n3. Handle ranges like '2 to 3' or '1/2 to 1' in the quantity field.\n4. If there is no quantity, leave it as an empty string.\n5. Wrap the result in a JSON object with a key named 'ingredients'."
+              content: `You are a grocery-focused recipe ingredient parser.
+Convert raw ingredient strings into a clean JSON array.
+
+OUTPUT FORMAT:
+{"ingredients": [{"name": "item name", "quantity": "amount"}]}
+
+STRICT PARSING RULES:
+1. NORMALIZE UNITS: 
+   - Change "teaspoon", "teaspoons", "tsp.", "t." -> "tsp"
+   - Change "tablespoon", "tablespoons", "tbsp.", "T." -> "tbsp"
+   - This applies to the "quantity" field.
+
+2. FILTERING (CRITICAL):
+   - REMOVE these ingredients entirely: "water", "ice".
+   - If an ingredient is just "water", do not include it in the JSON.
+
+3. CLEANING NAMES:
+   - In the "name" field, keep ONLY the item to be bought.
+   - Remove prep words: "chopped", "minced", "melted", "divided", "peeled", "beaten", "crushed".
+   - Remove non-essential adjectives: "fresh", "organic", "large", "small", "freshly ground".
+   - Example: "2 cups fresh organic spinach, chopped" -> {"name": "spinach", "quantity": "2 cups"}
+
+4. QUANTITY:
+   - Keep numbers and units (e.g., "1/2 cup", "2 lbs", "300g").
+   - If no quantity, use "".
+
+Double-check: Ensure NO "teaspoon" or "water" remains in the final JSON.`
             },
             {
               role: "user",
@@ -295,21 +322,14 @@ export const scrapeRecipe = functions.https.onRequest(async (req, res) => {
           response_format: { type: "json_object" }
         });
 
-        const parsedContent = JSON.parse(completion.choices[0].message.content || '{"ingredients": []}');
+        const content = completion.choices[0].message.content;
+        const parsedContent = JSON.parse(content || '{"ingredients": []}');
         parsedIngredients = parsedContent.ingredients || [];
-      } catch (aiError) {
-        console.error('AI Parsing Error, falling back to basic parsing:', aiError);
-        // Fallback to basic parsing if AI fails
-        parsedIngredients = rawIngredients.map((ing: string) => {
-          const trimmed = ing.trim();
-          const quantityMatch = trimmed.match(/^(\d+\s*[\d\/]*|\d+\/\d+|¼|½|¾|⅓|⅔|⅛|⅜|⅝|⅞)\s*(cups?|tbsps?|tsps?|g|kg|oz|lbs?|ml|l|can|clove|pinch|piece)?\s+/i);
-          if (quantityMatch) {
-            const quantity = quantityMatch[0].trim();
-            const name = trimmed.substring(quantityMatch[0].length).trim();
-            return { name, quantity };
-          }
-          return { name: trimmed, quantity: '' };
-        });
+      } catch (aiError: any) {
+        console.error('AI Parsing Error:', aiError.message);
+        // Remove fallback logic to ensure we only use the AI prompt results
+        res.status(500).send(`AI Parsing failed: ${aiError.message}`);
+        return;
       }
     }
 

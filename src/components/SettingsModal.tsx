@@ -196,13 +196,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
     };
 
     const handleLeaveFridge = () => {
+        const isLastMember = pair?.memberUids.length === 1;
+        
         Alert.alert(
-            "Leave Fridge?",
-            "Are you sure? You will lose access to all shared notes and groceries in this fridge.",
+            isLastMember ? "Delete Fridge?" : "Leave Fridge?",
+            isLastMember 
+                ? "You are the last member. This will PERMANENTLY delete this fridge and all its recipes, notes, and grocery items. This cannot be undone."
+                : "Are you sure? You will lose access to all shared notes and groceries in this fridge.",
             [
                 { text: "Cancel", style: "cancel" },
                 { 
-                    text: "Leave", 
+                    text: isLastMember ? "Delete Everything" : "Leave", 
                     style: "destructive",
                     onPress: async () => {
                         await unpair();
@@ -440,11 +444,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
 
                     {/* Danger Zone */}
                     <View style={styles.bottomButtons}>
+                        <TouchableOpacity style={styles.leaveButton} onPress={handleLeaveFridge}>
+                            <Text style={styles.leaveButtonText}>
+                                {pair?.memberUids.length === 1 ? "Delete Fridge" : "Leave Fridge"}
+                            </Text>
+                        </TouchableOpacity>
                         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
                             <Text style={styles.logoutButtonText}>Log Out</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.leaveButton} onPress={handleLeaveFridge}>
-                            <Text style={styles.leaveButtonText}>Leave Fridge</Text>
                         </TouchableOpacity>
                     </View>
                 </ScrollView>
@@ -628,11 +634,12 @@ const styles = StyleSheet.create({
     bottomButtons: {
         marginTop: 40,
         width: '100%',
+        flexDirection: 'row',
         gap: 12,
         paddingBottom: 20,
     },
     logoutButton: {
-        width: '50%',
+        flex: 1,
         alignSelf: 'center',
         backgroundColor: '#FFF7EE',
         paddingVertical: 12,
@@ -653,7 +660,7 @@ const styles = StyleSheet.create({
         color: '#BC4B41',
     },
     leaveButton: {
-        width: '50%',
+        flex: 1,
         alignSelf: 'center',
         backgroundColor: '#FFF7EE',
         paddingVertical: 12,

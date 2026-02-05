@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Dimensions, Alert } from 'react-native';
+import React, { useState, useMemo, useRef } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Dimensions, Alert, ActivityIndicator, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePairing } from '../hooks/usePairing';
 import Svg, { Path, G, Defs, Use, ClipPath, Rect } from 'react-native-svg';
@@ -21,16 +21,28 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 export const FridgeScreen: React.FC = () => {
     const navigation = useNavigation<any>();
-    const { pairId, userName, user, pair, isPremium } = usePairing();
-    const { items, addItem, toggleItem, deleteItem, updateItem } = useGroceryItems(pairId, user);
+    const { pairId, userName, user, pair, isPremium, cachedFridgeName } = usePairing();
+    const { items, loading: itemsLoading, addItem, toggleItem, deleteItem, updateItem } = useGroceryItems(pairId, user);
     const { note, updateNote } = useSharedNote(pairId, user);
     const [addItemVisible, setAddItemVisible] = useState(false);
     const [writeNoteVisible, setWriteNoteVisible] = useState(false);
     const [editingItem, setEditingItem] = useState<GroceryItem | null>(null);
     const [scrollPercent, setScrollPercent] = useState(0);
+    const [isListExpanded, setIsListExpanded] = useState(false);
+    const expandAnim = useRef(new Animated.Value(0)).current;
+
+    const toggleExpand = (expand: boolean) => {
+        setIsListExpanded(expand);
+        Animated.spring(expandAnim, {
+            toValue: expand ? 1 : 0,
+            useNativeDriver: false,
+            friction: 8,
+            tension: 40
+        }).start();
+    };
 
     // Calculate notepad title
-    const notepadTitle = pair?.fridgeName || (userName ? `${userName}'s Fridge` : "Our Fridge");
+    const notepadTitle = pair?.fridgeName || cachedFridgeName || (userName ? `${userName}'s Fridge` : "Our Fridge");
 
     const handleAddItem = async (name: string, quantity?: string, imageUrl?: string, imagePath?: string) => {
         await addItem(name, undefined, quantity, imageUrl, imagePath);
@@ -84,18 +96,25 @@ export const FridgeScreen: React.FC = () => {
     const notepadTop = fridgeTop + (300 * scale);
 
     // List area layout (relative to notepad)
-    // 360/1600 = 0.225
-    const listTop = notepadTop + notepadHeight * 0.225;
+    // 360/1600 = 0.225 -> changed to 0.20 to move up
+    const listTop = notepadTop + notepadHeight * 0.20;
     // 640/1600 = 0.4
     const listHeight = notepadHeight * 0.4;
     const listLeft = notepadLeft + notepadWidth * 0.10; // Centered on wider paper
     const listWidth = notepadWidth * 0.80; // 800/1000
 
+    const expandedListHeight = listHeight + (notepadHeight * 0.3) + (notepadHeight * 0.04375); // Covers list + note area + gap
+
+    const animatedListHeight = expandAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [listHeight, expandedListHeight]
+    });
+
     // Note area layout
-    // 1030/1600 = 0.64375
-    const noteTop = notepadTop + notepadHeight * 0.64375;
-    // 480/1600 = 0.3
-    const noteHeight = notepadHeight * 0.3;
+    // 1030/1600 = 0.64375 -> Adjusted to 0.66 to give more space for "Show more"
+    const noteTop = notepadTop + notepadHeight * 0.66;
+    // 480/1600 = 0.3 -> Adjusted slightly to maintain bottom position
+    const noteHeight = notepadHeight * 0.28375;
     const noteLeft = notepadLeft + notepadWidth * 0.10; // Centered on wider paper
     const noteWidth = notepadWidth * 0.80; // 800/1000
 
@@ -123,6 +142,15 @@ export const FridgeScreen: React.FC = () => {
                 <FridgeSVG />
             </View>
 
+            {/* Background overlay to catch taps outside the expanded list */}
+            {isListExpanded && (
+                <TouchableOpacity 
+                    style={StyleSheet.absoluteFill} 
+                    activeOpacity={1} 
+                    onPress={() => toggleExpand(false)} 
+                />
+            )}
+
             {/* Notepad overlay */}
             <View style={[styles.notepadContainer, { left: notepadLeft, top: notepadTop, width: notepadWidth, height: notepadHeight, overflow: 'visible' }]}>
                 <NotepadSVG width={notepadWidth} height={notepadHeight} title={notepadTitle} />
@@ -134,64 +162,99 @@ export const FridgeScreen: React.FC = () => {
             </View>
 
             {/* Grocery list overlay */}
-            <View style={[styles.listContainer, { left: listLeft, top: listTop, width: listWidth, height: listHeight }]}>
-                        {items.length === 0 ? (
+            <Animated.View style={[styles.listContainer, { left: listLeft, top: listTop, width: listWidth, height: animatedListHeight, backgroundColor: isListExpanded ? '#F6EDE3' : 'transparent', borderRadius: isListExpanded ? 16 * rScale : 0, zIndex: isListExpanded ? 100 : 1 }]}>
+                {itemsLoading && items.length === 0 ? (
+                    <View style={styles.emptyStateContainer}>
+                        <ActivityIndicator size="small" color="#6B4B3E" />
+                    </View>
+                ) : items.length === 0 ? (
+                    <TouchableOpacity
+                        style={styles.emptyStateContainer}
+                        onPress={() => navigation.navigate('Profile')}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={[styles.emptyStateTitle, { fontSize: 18 * rScale }]}>Fridge is empty! 🥛</Text>
+                    </TouchableOpacity>
+                ) : (
+                    <>
+                        <FlatList
+                            data={items}
+                            extraData={items}
+                            keyExtractor={(item) => item.id}
+                            renderItem={({ item }) => (
+                                <GroceryListRow
+                                    item={item}
+                                    onToggle={async () => {
+                                        if (!isPremium) {
+                                            await presentPaywall(user?.uid);
+                                            return;
+                                        }
+                                        toggleItem(item.id, item.isDone);
+                                    }}
+                                    onPress={async () => {
+                                        if (!isPremium) {
+                                            await presentPaywall(user?.uid);
+                                            return;
+                                        }
+                                        setEditingItem(item);
+                                    }}
+                                    onDelete={async () => {
+                                        if (!isPremium) {
+                                            await presentPaywall(user?.uid);
+                                            return;
+                                        }
+                                        deleteItem(item.id);
+                                    }}
+                                    scale={rScale}
+                                    rowHeight={listHeight / 5}
+                                />
+                            )}
+                            showsVerticalScrollIndicator={false}
+                            contentContainerStyle={[styles.listContent, isListExpanded && { paddingBottom: 20 * rScale, paddingTop: 10 * rScale }]}
+                            onScroll={(e) => {
+                                const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+                                const maxScroll = contentSize.height - layoutMeasurement.height;
+                                if (maxScroll <= 0) {
+                                    setScrollPercent(0);
+                                } else {
+                                    const scrollFraction = contentOffset.y / maxScroll;
+                                    setScrollPercent(Math.max(0, Math.min(1, scrollFraction)));
+                                }
+                            }}
+                            scrollEventThrottle={16}
+                        />
+                        {isListExpanded && (
                             <TouchableOpacity 
-                                style={styles.emptyStateContainer}
-                                onPress={() => navigation.navigate('Profile')}
-                                activeOpacity={0.7}
+                                style={[styles.expandedCloseButton, { paddingVertical: 12 * rScale }]} 
+                                onPress={() => toggleExpand(false)}
                             >
-                                <Text style={[styles.emptyStateTitle, { fontSize: 18 * rScale }]}>Fridge is empty! 🥛</Text>
+                                <Text style={[styles.showMoreText, { fontSize: 14 * rScale }]}>Close</Text>
                             </TouchableOpacity>
-                        ) : (
-                    <FlatList
-                        data={items}
-                        extraData={items}
-                        keyExtractor={(item) => item.id}
-                        renderItem={({ item }) => (
-                            <GroceryListRow
-                                item={item}
-                                onToggle={async () => {
-                                    if (!isPremium) {
-                                        await presentPaywall(user?.uid);
-                                        return;
-                                    }
-                                    toggleItem(item.id, item.isDone);
-                                }}
-                                onPress={async () => {
-                                    if (!isPremium) {
-                                        await presentPaywall(user?.uid);
-                                        return;
-                                    }
-                                    setEditingItem(item);
-                                }}
-                                onDelete={async () => {
-                                    if (!isPremium) {
-                                        await presentPaywall(user?.uid);
-                                        return;
-                                    }
-                                    deleteItem(item.id);
-                                }}
-                                scale={rScale}
-                                rowHeight={listHeight / 5}
-                            />
                         )}
-                        showsVerticalScrollIndicator={false}
-                        contentContainerStyle={styles.listContent}
-                        onScroll={(e) => {
-                            const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-                            const maxScroll = contentSize.height - layoutMeasurement.height;
-                            if (maxScroll <= 0) {
-                                setScrollPercent(0);
-                            } else {
-                                const scrollFraction = contentOffset.y / maxScroll;
-                                setScrollPercent(Math.max(0, Math.min(1, scrollFraction)));
-                            }
-                        }}
-                        scrollEventThrottle={16}
-                    />
+                    </>
                 )}
-            </View>
+            </Animated.View>
+
+            {/* "Show more" button in the gap - Only visible when NOT expanded */}
+            {!isListExpanded && items.length > 5 && (
+                <TouchableOpacity 
+                    style={{
+                        position: 'absolute',
+                        top: listTop + listHeight, 
+                        left: listLeft,
+                        width: listWidth,
+                        height: noteTop - (listTop + listHeight),
+                        justifyContent: 'flex-start',
+                        alignItems: 'center',
+                        paddingTop: 4 * rScale,
+                        zIndex: 5,
+                    }} 
+                    onPress={() => toggleExpand(true)}
+                    activeOpacity={0.6}
+                >
+                    <Text style={[styles.showMoreText, { fontSize: 14 * rScale }]}>Show more</Text>
+                </TouchableOpacity>
+            )}
 
             {/* Custom Aesthetic Scrollbar - Visible if more than 5 items */}
             {items.length > 5 && (
@@ -408,5 +471,37 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontSize: 16,
         fontFamily: 'Inter-SemiBold',
+    },
+    showMoreButton: {
+        alignItems: 'center',
+        paddingVertical: 10,
+        backgroundColor: 'rgba(107, 75, 62, 0.05)',
+        borderRadius: 8,
+    },
+    showMoreText: {
+        color: '#6B4B3E',
+        fontFamily: 'Inter-SemiBold',
+        opacity: 0.7,
+        textDecorationLine: 'underline',
+    },
+    closeButton: {
+        position: 'absolute',
+        zIndex: 101,
+    },
+    closeIconContainer: {
+        backgroundColor: 'rgba(107, 75, 62, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    closeIconText: {
+        color: '#6B4B3E',
+        fontFamily: 'Inter-Bold',
+    },
+    expandedCloseButton: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(107, 75, 62, 0.1)',
+        paddingBottom: 10,
     },
 });

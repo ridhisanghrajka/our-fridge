@@ -1,16 +1,45 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, Timestamp, orderBy } from 'firebase/firestore';
 import { ref, deleteObject, uploadBytes, getDownloadURL } from 'firebase/storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db, storage } from '../services/firebase';
 import { GroceryItem } from '../types/GroceryItem';
 import { User } from '../types/User';
 import { upsertMemoryItem, deleteMemoryItem } from '../services/groceryMemory';
 import { logActivity } from '../services/activity';
 
+const CACHE_KEY_PREFIX = 'grocery_items_';
+
 export const useGroceryItems = (pairId: string | null, user: User | null) => {
     const [items, setItems] = useState<GroceryItem[]>([]);
     const [loading, setLoading] = useState(true);
     const userName = user?.name || 'User';
+
+    // Load from cache initially
+    useEffect(() => {
+        if (!pairId) return;
+
+        const loadCache = async () => {
+            try {
+                const cachedData = await AsyncStorage.getItem(`${CACHE_KEY_PREFIX}${pairId}`);
+                if (cachedData) {
+                    const parsed = JSON.parse(cachedData);
+                    // Convert date strings back to Date objects
+                    const itemsWithDates = parsed.map((item: any) => ({
+                        ...item,
+                        createdAt: new Date(item.createdAt),
+                        updatedAt: new Date(item.updatedAt),
+                    }));
+                    setItems(itemsWithDates);
+                    // We still keep loading true until Firebase responds
+                }
+            } catch (e) {
+                console.error("Error loading grocery items cache:", e);
+            }
+        };
+
+        loadCache();
+    }, [pairId]);
 
     useEffect(() => {
         if (!pairId) {
@@ -55,6 +84,11 @@ export const useGroceryItems = (pairId: string | null, user: User | null) => {
 
             setItems(sorted);
             setLoading(false);
+
+            // Update cache
+            AsyncStorage.setItem(`${CACHE_KEY_PREFIX}${pairId}`, JSON.stringify(sorted)).catch(e => {
+                console.error("Error saving grocery items cache:", e);
+            });
         });
 
         return () => unsubscribe();

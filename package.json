@@ -34,6 +34,7 @@
     "expo-linking": "~8.0.11",
     "expo-location": "~19.0.8",
     "expo-notifications": "~0.32.16",
+    "expo-share-intent": "^5.1.1",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
     "expo-task-manager": "~14.0.9",
@@ -51,7 +52,8 @@
     "react-native-screens": "~4.16.0",
     "react-native-shared-group-preferences": "^1.1.24",
     "react-native-svg": "15.12.1",
-    "react-native-view-shot": "4.0.3"
+    "react-native-view-shot": "4.0.3",
+    "zustand": "^5.0.11"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",

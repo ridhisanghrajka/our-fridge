@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import Svg, { Path } from 'react-native-svg';
+import * as Haptics from 'expo-haptics';
 import { GroceryItem } from '../types/GroceryItem';
 
 interface GroceryListRowProps {
@@ -14,6 +15,15 @@ interface GroceryListRowProps {
 }
 
 export const GroceryListRow: React.FC<GroceryListRowProps> = ({ item, onToggle, onPress, onDelete, scale = 1, rowHeight }) => {
+    const handleToggle = () => {
+        if (!item.isDone) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        } else {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+        onToggle();
+    };
+
     return (
         <TouchableOpacity
             style={[
@@ -21,7 +31,7 @@ export const GroceryListRow: React.FC<GroceryListRowProps> = ({ item, onToggle, 
                 { paddingVertical: 8 * scale }, // Reduced from 12 to help fit
                 rowHeight ? { height: rowHeight } : {}
             ]}
-            onPress={onPress || onToggle}
+            onPress={onPress || handleToggle}
             activeOpacity={0.7}
         >
             {/* Checkbox */}
@@ -29,7 +39,7 @@ export const GroceryListRow: React.FC<GroceryListRowProps> = ({ item, onToggle, 
                 activeOpacity={0.7}
                 onPress={(e) => {
                     e.stopPropagation();
-                    onToggle();
+                    handleToggle();
                 }}
                 style={[styles.checkbox, {
                     width: 28 * scale, // Reduced from 32 to help fit better
@@ -53,7 +63,7 @@ export const GroceryListRow: React.FC<GroceryListRowProps> = ({ item, onToggle, 
             <View style={[styles.contentContainer, { borderBottomWidth: 2 * scale, paddingTop: 4 * scale, paddingBottom: 4 * scale }]}>
                 {item.emoji && <Text style={[styles.emoji, { fontSize: 20 * scale, marginRight: 8 * scale }]}>{item.emoji}</Text>}
 
-                <Text style={[styles.name, { fontSize: 18 * scale, lineHeight: 22 * scale }, item.isDone && styles.nameDone]} numberOfLines={1}>
+                <Text style={[styles.name, { fontSize: 18 * scale, lineHeight: 22 * scale, marginTop: -4 * scale }, item.isDone && styles.nameDone]} numberOfLines={1}>
                     {item.name}
                 </Text>
 
