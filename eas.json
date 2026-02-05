@@ -18,7 +18,8 @@
         "env": {
           "NODE_OPTIONS": "--max-old-space-size=4096"
         }
-      }
+      },
+      "prebuild": "./eas-build-post-install.sh"
     }
   },
   "submit": {
