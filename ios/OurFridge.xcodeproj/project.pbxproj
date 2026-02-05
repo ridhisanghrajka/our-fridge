@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		17E7C51698044ABB95FB67C8 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = CF1B09C89BDA46049C1E85F0 /* PrivacyInfo.xcprivacy */; };
+		2991808C01517E17277C6C01 /* libPods-ShareExtension.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45302923DBE7080E1F4E3B1B /* libPods-ShareExtension.a */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		4ED79C0EBC2948749F7BCE6D /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D93D05B5FFB04BFBA780CBDD /* ShareViewController.swift */; };
 		582F7AA4A00B241440BF7DEB /* libPods-OurFridge.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DEC1549AFB3BD8633026635B /* libPods-OurFridge.a */; };
@@ -24,6 +25,7 @@
 		97218D1C7E0E8395BBA3F098 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F281F79808C860C9E407FB4B /* ExpoModulesProvider.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		D64C632364E477D07CD0B43E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 5E5D6ACB551E91538D53CA08 /* PrivacyInfo.xcprivacy */; };
+		D7C6BE3F57877B0BB690373C /* libPods-FridgeWidgetExtension.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0BD9742755315014A047072D /* libPods-FridgeWidgetExtension.a */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 		F11748472D0722820044C1D9 /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748452D0722820044C1D9 /* WidgetBridge.swift */; };
 		F11748482D0722820044C1D9 /* WidgetBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = F11748462D0722820044C1D9 /* WidgetBridge.m */; };
@@ -73,9 +75,14 @@
 
 /* Begin PBXFileReference section */
 		09157661556BD7D99A077342 /* Pods-OurFridge.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-OurFridge.release.xcconfig"; path = "Target Support Files/Pods-OurFridge/Pods-OurFridge.release.xcconfig"; sourceTree = "<group>"; };
+		0BD9742755315014A047072D /* libPods-FridgeWidgetExtension.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-FridgeWidgetExtension.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		0C2D223012CADA94D60B3C5F /* Pods-FridgeWidgetExtension.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-FridgeWidgetExtension.release.xcconfig"; path = "Target Support Files/Pods-FridgeWidgetExtension/Pods-FridgeWidgetExtension.release.xcconfig"; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* OurFridge.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OurFridge.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = OurFridge/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = OurFridge/Info.plist; sourceTree = "<group>"; };
+		1E781854FF6E55DBAC52175D /* Pods-FridgeWidgetExtension.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-FridgeWidgetExtension.debug.xcconfig"; path = "Target Support Files/Pods-FridgeWidgetExtension/Pods-FridgeWidgetExtension.debug.xcconfig"; sourceTree = "<group>"; };
+		45302923DBE7080E1F4E3B1B /* libPods-ShareExtension.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-ShareExtension.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		4756E43C2BA5913BC9532AA9 /* Pods-ShareExtension.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ShareExtension.release.xcconfig"; path = "Target Support Files/Pods-ShareExtension/Pods-ShareExtension.release.xcconfig"; sourceTree = "<group>"; };
 		5B5C24066F2A4B89AF86A4B9 /* ShareExtension-Info.plist */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; path = "ShareExtension-Info.plist"; sourceTree = "<group>"; };
 		5E5D6ACB551E91538D53CA08 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = OurFridge/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		641F6A425DB54AF6AE5E7973 /* MainInterface.storyboard */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; path = MainInterface.storyboard; sourceTree = "<group>"; };
@@ -90,6 +97,7 @@
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = OurFridge/SplashScreen.storyboard; sourceTree = "<group>"; };
 		B4ABB32DD7EB5A054E4B3C00 /* Pods-OurFridge.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-OurFridge.debug.xcconfig"; path = "Target Support Files/Pods-OurFridge/Pods-OurFridge.debug.xcconfig"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
+		BECA050ACCB697476B4642FE /* Pods-ShareExtension.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ShareExtension.debug.xcconfig"; path = "Target Support Files/Pods-ShareExtension/Pods-ShareExtension.debug.xcconfig"; sourceTree = "<group>"; };
 		C8845CE6ACC74126AC3E72C7 /* ShareExtensionPreprocessor.js */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; path = ShareExtensionPreprocessor.js; sourceTree = "<group>"; };
 		CF1B09C89BDA46049C1E85F0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		D93D05B5FFB04BFBA780CBDD /* ShareViewController.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
@@ -143,6 +151,7 @@
 			files = (
 				758A31652F1B367A00656DF7 /* SwiftUI.framework in Frameworks */,
 				758A31632F1B367A00656DF7 /* WidgetKit.framework in Frameworks */,
+				D7C6BE3F57877B0BB690373C /* libPods-FridgeWidgetExtension.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -150,6 +159,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2991808C01517E17277C6C01 /* libPods-ShareExtension.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -194,6 +204,8 @@
 				758A31622F1B367900656DF7 /* WidgetKit.framework */,
 				758A31642F1B367A00656DF7 /* SwiftUI.framework */,
 				DEC1549AFB3BD8633026635B /* libPods-OurFridge.a */,
+				0BD9742755315014A047072D /* libPods-FridgeWidgetExtension.a */,
+				45302923DBE7080E1F4E3B1B /* libPods-ShareExtension.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -211,6 +223,10 @@
 			children = (
 				B4ABB32DD7EB5A054E4B3C00 /* Pods-OurFridge.debug.xcconfig */,
 				09157661556BD7D99A077342 /* Pods-OurFridge.release.xcconfig */,
+				1E781854FF6E55DBAC52175D /* Pods-FridgeWidgetExtension.debug.xcconfig */,
+				0C2D223012CADA94D60B3C5F /* Pods-FridgeWidgetExtension.release.xcconfig */,
+				BECA050ACCB697476B4642FE /* Pods-ShareExtension.debug.xcconfig */,
+				4756E43C2BA5913BC9532AA9 /* Pods-ShareExtension.release.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -274,9 +290,11 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = FC0DFC01D5CC4E479F959E73 /* Build configuration list for PBXNativeTarget "ShareExtension" */;
 			buildPhases = (
+				A934270BB24C6C8AF51B8AD9 /* [CP] Check Pods Manifest.lock */,
 				3FB38656B21D49F98D494A1F /* Sources */,
 				4A7976CF17AD4582AC236E2C /* Resources */,
 				E8589A51EC3D4763B6796020 /* Frameworks */,
+				ACC6D7BCF6DAFFB5DF03B149 /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -317,6 +335,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 758A31752F1B367A00656DF7 /* Build configuration list for PBXNativeTarget "FridgeWidgetExtension" */;
 			buildPhases = (
+				E6F9617FF5E382B9249ACC2B /* [CP] Check Pods Manifest.lock */,
 				758A315D2F1B367900656DF7 /* Sources */,
 				758A315E2F1B367900656DF7 /* Frameworks */,
 				758A315F2F1B367900656DF7 /* Resources */,
@@ -484,6 +503,45 @@
 			shellPath = /bin/sh;
 			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-OurFridge/expo-configure-project.sh\"\n";
 		};
+		A934270BB24C6C8AF51B8AD9 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-ShareExtension-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		ACC6D7BCF6DAFFB5DF03B149 /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-ShareExtension/Pods-ShareExtension-resources-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-ShareExtension/Pods-ShareExtension-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-ShareExtension/Pods-ShareExtension-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
 		E55D7A5CA78443C675EE8879 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -499,6 +557,28 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-OurFridge/Pods-OurFridge-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		E6F9617FF5E382B9249ACC2B /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-FridgeWidgetExtension-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -616,6 +696,7 @@
 		};
 		64C117457A1141A5B11F26DE /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4756E43C2BA5913BC9532AA9 /* Pods-ShareExtension.release.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
@@ -643,6 +724,7 @@
 		};
 		758A31722F1B367A00656DF7 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1E781854FF6E55DBAC52175D /* Pods-FridgeWidgetExtension.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -692,6 +774,7 @@
 		};
 		758A31732F1B367A00656DF7 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 0C2D223012CADA94D60B3C5F /* Pods-FridgeWidgetExtension.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -740,6 +823,7 @@
 		};
 		7F6AD0C2B2B04E6FA7CC5DE5 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = BECA050ACCB697476B4642FE /* Pods-ShareExtension.debug.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
@@ -824,7 +908,7 @@
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
+				REACT_NATIVE_PATH = "${PODS_ROOT}/../Users/ridhisanghrajka/DumbFridge/our-fridge/node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
 				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
@@ -879,7 +963,7 @@
 				);
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = NO;
-				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
+				REACT_NATIVE_PATH = "${PODS_ROOT}/../Users/ridhisanghrajka/DumbFridge/our-fridge/node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
 				USE_HERMES = true;
