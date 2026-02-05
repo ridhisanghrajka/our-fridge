@@ -14,12 +14,11 @@
     "production": {
       "autoIncrement": false,
       "ios": {
-        "buildConfiguration": "Release",
-        "env": {
-          "NODE_OPTIONS": "--max-old-space-size=4096"
-        }
+        "buildConfiguration": "Release"
       },
-      "prebuild": "./eas-build-post-install.sh"
+      "env": {
+        "NODE_OPTIONS": "--max-old-space-size=4096"
+      }
     }
   },
   "submit": {
