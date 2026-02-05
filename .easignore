@@ -1,0 +1,35 @@
+# Ignore build artifacts
+*.ipa
+build-*.ipa
+
+# Ignore IDE files
+.vscode/
+.idea/
+
+# Ignore git
+.git/
+
+# Node modules are reinstalled on the server
+node_modules/
+
+# iOS build folders
+ios/build/
+ios/Pods/Pods.xcodeproj
+ios/DerivedData/
+
+# Android build folders
+android/build/
+android/app/build/
+
+# macOS files
+.DS_Store
+
+# Expo
+.expo/
+.expo-shared/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
