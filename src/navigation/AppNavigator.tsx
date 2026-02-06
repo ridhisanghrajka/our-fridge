@@ -14,8 +14,11 @@ import { ImportRecipeScreen } from '../screens/ImportRecipeScreen';
 import { WidgetSynchronizer } from '../components/WidgetSynchronizer';
 import { usePairing } from '../hooks/usePairing';
 import { useShareStore } from '../services/shareStore';
-import { View, ActivityIndicator, StyleSheet, Alert } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Alert, Animated, Image } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const FridgeHiImage = require('../assets/fridge_hi.png');
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -137,9 +140,31 @@ const MainTabs = () => {
 };
 
 export const AppNavigator: React.FC = () => {
-    const { pairId, userName, loading, userLoading, user, unpair, isOnboarding } = usePairing();
+    const { pairId, userName, loading, userLoading, user, unpair, isOnboarding, isHydrated } = usePairing();
     const navigationRef = useNavigationContainerRef();
     const pendingRecipeUrl = useShareStore((state) => state.pendingRecipeUrl);
+    const bounceAnim = React.useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        if (!isHydrated) {
+            Animated.loop(
+                Animated.sequence([
+                    Animated.spring(bounceAnim, {
+                        toValue: 1,
+                        friction: 4,
+                        tension: 40,
+                        useNativeDriver: true,
+                    }),
+                    Animated.spring(bounceAnim, {
+                        toValue: 0,
+                        friction: 4,
+                        tension: 40,
+                        useNativeDriver: true,
+                    })
+                ])
+            ).start();
+        }
+    }, [isHydrated]);
 
     useEffect(() => {
         if (pendingRecipeUrl && navigationRef.isReady()) {
@@ -159,11 +184,34 @@ export const AppNavigator: React.FC = () => {
         }
     }, [pendingRecipeUrl, navigationRef]);
 
-    if ((loading || userLoading) && !pairId) {
+    if (!isHydrated || ((loading || userLoading) && !pairId)) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#6B4B3E" />
-            </View>
+            <LinearGradient colors={['#DDF3FF', '#FFF6EA']} style={styles.loadingContainer}>
+                <Animated.View
+                    style={{
+                        transform: [
+                            {
+                                translateY: bounceAnim.interpolate({
+                                    inputRange: [0, 1],
+                                    outputRange: [0, -30]
+                                })
+                            },
+                            {
+                                scale: bounceAnim.interpolate({
+                                    inputRange: [0, 1],
+                                    outputRange: [1, 1.05]
+                                })
+                            }
+                        ]
+                    }}
+                >
+                    <Image 
+                        source={FridgeHiImage} 
+                        style={{ width: 120, height: 120 }} 
+                        resizeMode="contain" 
+                    />
+                </Animated.View>
+            </LinearGradient>
         );
     }
 

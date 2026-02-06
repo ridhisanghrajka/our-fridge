@@ -33,9 +33,9 @@ export const AddRecipeScreen: React.FC = () => {
     const [recipeName, setRecipeName] = useState(initialData?.name || '');
     const [ingredients, setIngredients] = useState(
         initialData?.ingredients?.length > 0 
-            ? initialData.ingredients.map((ing: { name?: string; quantity?: string }) => ({
-                name: ing.name || '',
-                quantity: ing.quantity || ''
+            ? initialData.ingredients.map((ing: any) => ({
+                name: typeof ing === 'string' ? ing : (ing.name || ''),
+                quantity: typeof ing === 'string' ? '' : (ing.quantity || '')
             }))
             : [{ name: '', quantity: '' }]
     );

@@ -94,6 +94,9 @@ const BellIcon = ({ size = 20, color = "#E79B74" }) => (
     </Svg>
 );
 
+import * as Notifications from 'expo-notifications';
+import { registerForPushNotificationsAsync } from '../services/notifications';
+
 interface SettingsModalProps {
     visible: boolean;
     onClose: () => void;
@@ -120,6 +123,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
     const [tempFridgeName, setTempFridgeName] = useState(pair?.fridgeName || '');
 
     const [locationPickerType, setLocationPickerType] = useState<'departure' | 'store' | null>(null);
+    const [isNotifGranted, setIsNotifGranted] = useState(false);
     const [permissions, setPermissions] = useState<{ foreground: boolean; background: boolean; notifications: boolean }>({
         foreground: false,
         background: false,
@@ -131,6 +135,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
         const checkPerms = async () => {
             const perms = await checkLocationPermissions();
             setPermissions(perms);
+            
+            const { status } = await Notifications.getPermissionsAsync();
+            setIsNotifGranted(status === 'granted');
         };
 
         checkPerms();
@@ -143,6 +150,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
 
         return () => subscription.remove();
     }, []);
+
+    const handleNotificationToggle = async () => {
+        const { status } = await Notifications.getPermissionsAsync();
+
+        if (status === 'undetermined') {
+            // Scenario A: User clicked "Not Now" in onboarding
+            // Trigger the official system prompt
+            await registerForPushNotificationsAsync(true);
+        } else {
+            // Scenario B & C: User previously Denied OR is trying to turn Off
+            // Show the custom Alert to guide them to System Settings
+            Alert.alert(
+                "Notification Settings",
+                isNotifGranted 
+                    ? "To turn off notifications, please disable them in your phone's system settings."
+                    : "Notifications are disabled. Please enable them in your phone settings to stay in sync.",
+                [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Open Settings", onPress: () => Linking.openSettings() }
+                ]
+            );
+        }
+    };
 
     const getReminderStatus = (location: any) => {
         if (!location) return 'not_set';
@@ -363,10 +393,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
                                 </View>
                             </View>
                             <Switch
-                                value={prefs.notifyFridgeUpdates && prefs.notifyNotes}
-                                onValueChange={(val) => updatePrefs({ notifyFridgeUpdates: val, notifyNotes: val })}
+                                value={isNotifGranted}
+                                onValueChange={handleNotificationToggle}
                                 trackColor={{ false: '#DCC8B9', true: '#E79B74' }}
-                                thumbColor={prefs.notifyFridgeUpdates && prefs.notifyNotes ? '#6B4B3E' : '#FFF7EE'}
+                                thumbColor={isNotifGranted ? '#6B4B3E' : '#FFF7EE'}
                             />
                         </View>
 

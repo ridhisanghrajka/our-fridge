@@ -137,9 +137,8 @@ export const OnboardingScreen: React.FC = () => {
     } = usePairing();
 
     const [step, setStep] = useState(() => {
-        if (pairId) return 8; // Success/Share
-        if (user) return 5;   // Setup Choice
-        return 1;             // Welcome
+        if (user && !pairId) return 5;   // Setup Choice if logged in but no fridge
+        return 1;                       // Always start at Welcome carousel to prevent Step 8 flicker
     });
 
     // Handle returning users who logged out
@@ -337,9 +336,20 @@ export const OnboardingScreen: React.FC = () => {
             Alert.alert('Invalid Code', 'Please enter the 6-digit code');
             return;
         }
+
+        let displayName = userName?.trim();
+        
+        // Fallback to user object name if local state is empty
+        if (!displayName && user?.name) {
+            displayName = user.name;
+        }
+
+        // Final fallback to "User" if everything else fails
+        const finalName = displayName || 'User';
+
         setIsProcessing(true);
         try {
-            await joinExistingPair(pairingCode.trim(), userName?.trim() || '');
+            await joinExistingPair(pairingCode.trim(), finalName);
             completeOnboarding(); 
         } catch (err: any) {
             Alert.alert('Error', err.message || 'Failed to join fridge');

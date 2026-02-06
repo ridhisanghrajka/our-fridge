@@ -43,6 +43,7 @@ interface PairingContextType {
     userLoading: boolean;
     error: string | null;
     isOnboarding: boolean;
+    isHydrated: boolean;
     hasAccount: boolean;
     isPremium: boolean;
     refreshPremiumStatus: () => Promise<void>;
@@ -76,6 +77,7 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
     const [userLoading, setUserLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isOnboarding, setIsOnboarding] = useState(true);
+    const [isHydrated, setIsHydrated] = useState(false);
     const [hasAccount, setHasAccountState] = useState(false);
     const [isPremiumSDK, setIsPremiumSDK] = useState(false);
 
@@ -116,6 +118,8 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
                 }
             } catch (err) {
                 console.error('Error loading stored pairing data:', err);
+            } finally {
+                setIsHydrated(true);
             }
         };
 
@@ -428,6 +432,7 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
             userLoading,
             error,
             isOnboarding,
+            isHydrated,
             hasAccount,
             isPremium: combinedIsPremium,
             refreshPremiumStatus,

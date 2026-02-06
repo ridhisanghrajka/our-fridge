@@ -12,6 +12,7 @@ import {
     Platform
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { usePairing } from '../hooks/usePairing';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
 import LottieView from 'lottie-react-native';
@@ -60,6 +61,7 @@ export const ImportRecipeScreen: React.FC = () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
                 },
                 body: JSON.stringify({ url: urlToUse }),
             });
@@ -70,12 +72,36 @@ export const ImportRecipeScreen: React.FC = () => {
             }
 
             const data = await response.json();
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/1dea1759-9710-4a97-acf7-f3fb6a2f5fbd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ImportRecipeScreen.tsx:75',message:'Raw data from API',data:{data},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H6'})}).catch(()=>{});
+            // #endregion
             
+            // Helper to decode HTML entities and clean up strings
+            const cleanString = (str: any) => {
+                if (str === null || str === undefined) return '';
+                const stringValue = String(str);
+                return stringValue
+                    .replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec))
+                    .replace(/&#x([0-9a-f]+);/gi, (match, hex) => String.fromCharCode(parseInt(hex, 16)))
+                    .replace(/&quot;/g, '"')
+                    .replace(/&amp;/g, '&')
+                    .replace(/&lt;/g, '<')
+                    .replace(/&gt;/g, '>')
+                    .replace(/&nbsp;/g, ' ')
+                    .trim();
+            };
+
             // Navigate to AddRecipe with the pre-filled data
             navigation.replace('AddRecipe', { 
                 initialData: {
-                    name: data.name || '',
-                    ingredients: data.ingredients || [],
+                    name: cleanString(data.name),
+                    ingredients: (data.ingredients || []).map((i: any) => {
+                        if (typeof i === 'string') return cleanString(i);
+                        return {
+                            name: cleanString(i.name),
+                            quantity: cleanString(i.quantity)
+                        };
+                    }),
                     imageUrl: data.imageUrl || null,
                     notes: '' // Clear notes for new import
                 }

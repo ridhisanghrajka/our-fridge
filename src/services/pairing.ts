@@ -279,6 +279,9 @@ export const leaveFridge = async (code: string, userId: string): Promise<void> =
         await deleteDoc(pairRef);
         // Also delete items and notes? (Plan says: "Delete the fridge document and all its grocery items/notes immediately")
         // TODO: Implement deletion of items/notes in a Cloud Function or here
+        // Delete the users sub-collection as well (at least the current user's doc)
+        const userInPairRef = doc(db, 'pairs', code, 'users', userId);
+        await deleteDoc(userInPairRef);
     } else {
         // Remove member
         const updates: any = {
@@ -294,6 +297,11 @@ export const leaveFridge = async (code: string, userId: string): Promise<void> =
         updates.memberPhotos = newMemberPhotos;
         
         await updateDoc(pairRef, updates);
+
+        // CRITICAL FIX: Also delete the user from the 'users' sub-collection 
+        // which is used by Cloud Functions for notifications.
+        const userInPairRef = doc(db, 'pairs', code, 'users', userId);
+        await deleteDoc(userInPairRef);
     }
 
     // Update user's fridgeId

@@ -74,8 +74,7 @@ export default function App() {
       // The library seems to use webUrl (camelCase) or text for the actual value
       const url = shareIntent.value?.trim() || (shareIntent as any).webUrl || (shareIntent as any).text;
       
-      if (url && url !== lastProcessedUrl.current) {
-        lastProcessedUrl.current = url;
+      if (url) {
         setPendingRecipeUrl(url);
         
         // Reset the native intent immediately after capturing the payload
