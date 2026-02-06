@@ -12,13 +12,7 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": false,
-      "ios": {
-        "buildConfiguration": "Release"
-      },
-      "env": {
-        "NODE_OPTIONS": "--max-old-space-size=4096"
-      }
+      "autoIncrement": false
     }
   },
   "submit": {
