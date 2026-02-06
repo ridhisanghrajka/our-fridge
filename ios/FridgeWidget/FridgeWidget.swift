@@ -362,8 +362,14 @@ struct FridgeWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: Provider()) { entry in
-            FridgeWidgetEntryView(entry: entry)
-                .containerBackground(Color.brandBlue, for: .widget)
+            if #available(iOS 17.0, *) {
+                FridgeWidgetEntryView(entry: entry)
+                    .containerBackground(Color.brandBlue, for: .widget)
+            } else {
+                FridgeWidgetEntryView(entry: entry)
+                    .padding()
+                    .background(Color.brandBlue)
+            }
         }
         .configurationDisplayName("Our Fridge")
         .description("Keep track of your grocery list and notes.")

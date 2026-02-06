@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.ridhisanghrajka.ourfridge",
-      "buildNumber": "4",
+      "buildNumber": "5",
       "infoPlist": {
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Our Fridge uses your location to remind you to pick up groceries when you leave work or arrive at the store.",
         "NSLocationAlwaysUsageDescription": "Our Fridge uses your location to remind you to pick up groceries when you leave work or arrive at the store.",
