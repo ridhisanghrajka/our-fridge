@@ -296,16 +296,33 @@ export const OnboardingScreen: React.FC = () => {
     };
 
     const handleCreate = async () => {
-        const displayName = userName?.trim();
+        let displayName = userName?.trim();
         
-        if (!displayName) {
-            Alert.alert('Name Required', 'Please go back and enter your name to create a fridge.');
-            return;
+        // Fallback to user object name if local state is empty
+        if (!displayName && user?.name) {
+            displayName = user.name;
         }
+
+        // Last resort: try to fetch fresh user data if we have a UID
+        if (!displayName && user?.uid) {
+            try {
+                const { getUser } = require('../services/pairing');
+                const freshUser = await getUser(user.uid);
+                if (freshUser?.name) {
+                    displayName = freshUser.name;
+                    setUserName(freshUser.name); // Sync back to context
+                }
+            } catch (err) {
+                console.error('Error fetching fresh user name:', err);
+            }
+        }
+
+        // Final fallback to "User" if everything else fails
+        const finalName = displayName || 'User';
 
         setIsProcessing(true);
         try {
-            const code = await createNewPair(displayName, fridgeName.trim() || undefined);
+            const code = await createNewPair(finalName, fridgeName.trim() || undefined);
             setGeneratedCode(code);
             nextStep(8); // Move to Success/Share
         } catch (err: any) {
@@ -499,7 +516,7 @@ export const OnboardingScreen: React.FC = () => {
                             style={[styles.primaryButton, styles.buttonGlow]} 
                             onPress={() => nextStep(3)}
                         >
-                            <Text style={styles.buttonText}>Create My Fridge</Text>
+                            <Text style={styles.buttonText}>Create My Account</Text>
                         </TouchableOpacity>
                         
                         <TouchableOpacity style={styles.outlineButton} onPress={() => nextStep(4)}>
