@@ -15,6 +15,9 @@ export interface WidgetSnapshot {
   isLocked: boolean;
 }
 
+let syncDebounceTimer: any = null;
+const DEBOUNCE_MS = 1000;
+
 /**
  * Syncs the current fridge state to the iOS widget shared storage.
  */
@@ -22,10 +25,18 @@ export const syncDataToWidget = async (
   items: GroceryItem[],
   note: SharedNote | null,
   fridgeName: string = "Our Fridge",
-  isPremium: boolean = false
+  isPremium: boolean = false,
+  trigger: string = 'unknown'
 ) => {
-  try {
-    const isLocked = !isPremium;
+  // Clear any pending sync
+  if (syncDebounceTimer) {
+    clearTimeout(syncDebounceTimer);
+  }
+
+  return new Promise<void>((resolve) => {
+    syncDebounceTimer = setTimeout(async () => {
+      try {
+        const isLocked = !isPremium;
 
     // 1. Prepare items
     let activeItems: string[] = [];
@@ -72,16 +83,25 @@ export const syncDataToWidget = async (
       isLocked,
     };
 
-    // 3. Save to shared group preferences
-    await SharedGroupPreferences.setItem('widgetData', snapshot, APP_GROUP);
-    console.log("Widget data synced successfully");
-
-    // 4. Prompt iOS to refresh the widget
-    if (Platform.OS === 'ios' && WidgetBridge?.reloadWidget) {
-      WidgetBridge.reloadWidget();
+    // 3. Save to shared group preferences (and/or native bridge)
+    // Prefer the native bridge on iOS because it writes to UserDefaults and forces a widget reload
+    // with better cross-process propagation.
+    const json = JSON.stringify(snapshot);
+    const usesNativeWrite = Platform.OS === 'ios' && typeof WidgetBridge?.setWidgetData === 'function';
+    if (usesNativeWrite) {
+      WidgetBridge.setWidgetData(json);
+    } else {
+      await SharedGroupPreferences.setItem('widgetData', json, APP_GROUP);
+      // 4. Prompt iOS to refresh the widget (fallback path)
+      if (Platform.OS === 'ios' && WidgetBridge?.reloadWidget) {
+        WidgetBridge.reloadWidget();
+      }
     }
+    resolve();
   } catch (error) {
-    // This will likely fail until the native module is installed and app is prebuilt
-    console.log("Widget sync failed (expected if not on native/ios):", error);
+    // swallow
+    resolve();
   }
+}, DEBOUNCE_MS);
+});
 };

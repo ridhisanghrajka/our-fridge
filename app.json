@@ -16,14 +16,17 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.ridhisanghrajka.ourfridge",
-      "buildNumber": "9",
+      "buildNumber": "10",
       "infoPlist": {
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Our Fridge uses your location to remind you to pick up groceries when you leave work or arrive at the store.",
-        "NSLocationAlwaysUsageDescription": "Our Fridge uses your location to remind you to pick up groceries when you leave work or arrive at the store.",
-        "NSLocationWhenInUseUsageDescription": "Our Fridge uses your location to help you set your favorite grocery store and work locations.",
+        "NSCameraUsageDescription": "We use your camera to let you take photos for your profile, grocery list items, or shared recipes.",
+        "NSPhotoLibraryUsageDescription": "We use your photo library so you can upload images for your profile, grocery list items, or shared recipes.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Our Fridge uses your location to send you a reminder when you arrive at the store or leave work, even if the app is in the background.",
+        "NSLocationAlwaysUsageDescription": "Our Fridge uses your location to send you a reminder when you arrive at the store or leave work, even if the app is in the background.",
+        "NSLocationWhenInUseUsageDescription": "Our Fridge uses your location to help you set your favorite grocery store and work locations on the map.",
         "UIBackgroundModes": [
           "location",
-          "fetch"
+          "fetch",
+          "remote-notification"
         ]
       },
       "appleTeamId": "W9F5AGQ7QJ"

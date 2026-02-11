@@ -140,10 +140,53 @@ const MainTabs = () => {
 };
 
 export const AppNavigator: React.FC = () => {
-    const { pairId, userName, loading, userLoading, user, unpair, isOnboarding, isHydrated } = usePairing();
+    const { 
+        pairId, 
+        userName, 
+        loading, 
+        userLoading, 
+        isAuthTransitioning,
+        user, 
+        unpair, 
+        hasCompletedOnboarding, 
+        isHydrated 
+    } = usePairing();
     const navigationRef = useNavigationContainerRef();
     const pendingRecipeUrl = useShareStore((state) => state.pendingRecipeUrl);
     const bounceAnim = React.useRef(new Animated.Value(0)).current;
+
+    // 1. The Latch (Session-based)
+    const [onboardingFinished, setOnboardingFinished] = React.useState<boolean | null>(null);
+
+    // 2. The Boot Sequence (Safe & Fast)
+    useEffect(() => {
+        // We wait for Disk Hydration AND Firebase Auth to resolve
+        if (isHydrated && onboardingFinished === null && !userLoading && !isAuthTransitioning) {
+            // Seed the latch once from persisted truth.
+            // A user is only "finished" if the device milestone is set AND they actually have a fridge.
+            // If they have no fridge, we force the latch to false so they are "locked" 
+            // into the onboarding container until they explicitly finish the setup.
+            const isTrulyFinished = hasCompletedOnboarding && !!user?.fridgeId;
+            setOnboardingFinished(isTrulyFinished); 
+        }
+    }, [isHydrated, hasCompletedOnboarding, userLoading, user?.fridgeId, isAuthTransitioning]);
+
+    // 3. The Stable Release
+    // If the user is logged in but their fridge explicitly disappears (e.g. deleted or left),
+    // we unlock the latch so they are sent back to the setup screens.
+    // We use isHydrated and !userLoading as shields to ensure this only happens 
+    // when the app state is stable, not during transient auth changes.
+    useEffect(() => {
+        if (
+            isHydrated &&
+            !userLoading &&
+            onboardingFinished === true &&
+            user &&
+            user.fridgeId === null
+        ) {
+            setOnboardingFinished(false);
+        }
+    }, [isHydrated, userLoading, user?.fridgeId, onboardingFinished]);
 
     useEffect(() => {
         if (!isHydrated) {
@@ -184,7 +227,13 @@ export const AppNavigator: React.FC = () => {
         }
     }, [pendingRecipeUrl, navigationRef]);
 
-    if (!isHydrated || ((loading || userLoading) && !pairId)) {
+    // THE FIX: While Firebase is checking the user (userLoading), 
+    // we stay on the Splash screen. This prevents the "flash" of 
+    // the wrong screen during logout or login.
+    // We ONLY show the splash screen if we haven't decided where to go yet (onboardingFinished === null)
+    // or if the user data is still loading for the first time.
+    // We DO NOT show it during isAuthTransitioning here because that causes the OnboardingScreen to unmount.
+    if (onboardingFinished === null || (userLoading && onboardingFinished === null)) {
         return (
             <LinearGradient colors={['#DDF3FF', '#FFF6EA']} style={styles.loadingContainer}>
                 <Animated.View
@@ -215,8 +264,13 @@ export const AppNavigator: React.FC = () => {
         );
     }
 
-    if (!user || !userName || !pairId || isOnboarding) {
-        return <OnboardingScreen />;
+    // If they haven't finished onboarding, OR they are logged out...
+    // We rely ONLY on the onboardingFinished latch to stay in the onboarding flow.
+    // This prevents the app from jumping to the main screen the moment a fridge is created,
+    // ensuring the user sees the Success/Share screen.
+    // We also stay here during auth transitions to prevent unmounting/remounting.
+    if (onboardingFinished === false || !user || isAuthTransitioning) {
+        return <OnboardingScreen onFinish={() => setOnboardingFinished(true)} />;
     }
 
     return (

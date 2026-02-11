@@ -1,18 +1,116 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
-import { Platform } from 'react-native';
-import { doc, setDoc, updateDoc, Timestamp, getDoc } from 'firebase/firestore';
+import { Platform, NativeModules } from 'react-native';
+import * as TaskManager from 'expo-task-manager';
+import { doc, setDoc, updateDoc, Timestamp, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from './firebase';
+import { syncDataToWidget } from './widgetSync';
+
+const WIDGET_PUSH_TASK_NAME = 'OUR_FRIDGE_WIDGET_PUSH_TASK';
 
 // Set up notification handler
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
+  handleNotification: async (notification) => {
+    const data: any = notification?.request?.content?.data;
+    const isWidgetUpdate = data?.type === 'WIDGET_UPDATE';
+
+    return {
+      // Never alert/sound for widget-only silent refreshes
+      shouldShowBanner: !isWidgetUpdate,
+      shouldShowList: !isWidgetUpdate,
+      shouldPlaySound: !isWidgetUpdate,
+      shouldSetBadge: false,
+    };
+  },
 });
+
+/**
+ * Core widget refresh logic used by multiple entrypoints:
+ * - Foreground listener (when app is running)
+ * - Background task (when iOS wakes app for a silent push)
+ */
+async function syncWidgetFromStoredSession(): Promise<void> {
+  const { getStoredPairId, getStoredUserName } = require('./pairing');
+  const pairId = await getStoredPairId();
+  const userName = await getStoredUserName();
+
+  if (!pairId) return;
+
+  try {
+    // 1. Fetch latest grocery items
+    const itemsRef = collection(db, 'groceryItems');
+    const q = query(itemsRef, where('pairId', '==', pairId));
+    const itemsSnap = await getDocs(q);
+    const items = itemsSnap.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt?.toDate() || new Date(),
+      updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+    })) as any[];
+
+    // 2. Fetch latest note
+    const noteRef = doc(db, 'sharedNotes', pairId);
+    const noteSnap = await getDoc(noteRef);
+    const note = noteSnap.exists() ? {
+      pairId: noteSnap.data().pairId,
+      content: noteSnap.data().content || "[]",
+      updatedAt: noteSnap.data().updatedAt?.toDate() || new Date(),
+    } as any : null;
+
+    // 3. Get premium status + name
+    const pairRef = doc(db, 'pairs', pairId);
+    const pairSnap = await getDoc(pairRef);
+    const isPremium = pairSnap.exists() ? pairSnap.data().isPremiumEnabled : false;
+    const fridgeName = pairSnap.exists()
+      ? pairSnap.data().fridgeName
+      : (userName ? `${userName}'s Fridge` : 'Our Fridge');
+
+    // 4. Sync to widget
+    await syncDataToWidget(items, note, fridgeName, isPremium, 'PushSync:storedSession');
+  } catch (error) {
+    // swallow
+  }
+}
+
+/**
+ * Foreground listener: runs when the app process is alive.
+ */
+Notifications.addNotificationReceivedListener(async (notification) => {
+  const data: any = notification?.request?.content?.data;
+  if (data?.type === 'WIDGET_UPDATE') {
+    await syncWidgetFromStoredSession();
+  }
+});
+
+/**
+ * Background notification task: allows iOS silent pushes to execute JS and refresh the widget.
+ * Must be defined at module scope.
+ */
+TaskManager.defineTask(WIDGET_PUSH_TASK_NAME, async ({ data, error }: any) => {
+  if (error) {
+    return;
+  }
+
+  // expo-notifications passes different shapes depending on SDK; handle both defensively.
+  const notification = data?.notification ?? data;
+  const notifData: any = notification?.request?.content?.data ?? notification?.data;
+
+  if (notifData?.type === 'WIDGET_UPDATE') {
+    await syncWidgetFromStoredSession();
+  }
+});
+
+async function ensureWidgetPushTaskRegistered(): Promise<void> {
+  try {
+    const isRegistered = await TaskManager.isTaskRegisteredAsync(WIDGET_PUSH_TASK_NAME);
+    if (!isRegistered) {
+      await Notifications.registerTaskAsync(WIDGET_PUSH_TASK_NAME);
+    }
+  } catch (e) {
+    // swallow
+  }
+}
 
 /**
  * Request permissions and get the Expo push token
@@ -40,6 +138,10 @@ export async function registerForPushNotificationsAsync(requestIfNeeded: boolean
       console.log('Push notification permission not granted');
       return;
     }
+
+    // Ensure the background task is registered so silent pushes can refresh the widget.
+    // (Registration doesn't prompt; permission prompt is handled above.)
+    await ensureWidgetPushTaskRegistered();
     
     // projectId is required for EAS Build
     const projectId = 
@@ -81,13 +183,14 @@ export const updateUserMetadata = async (pairId: string, userId: string, token?:
   try {
     if (!userSnap.exists()) {
       // Initial setup for user
-      await setDoc(userRef, {
+      const writeData = {
         ...metadata,
         prefs: {
           notifyNotes: true,
           notifyFridgeUpdates: true,
         }
-      });
+      };
+      await setDoc(userRef, writeData);
     } else {
       await updateDoc(userRef, metadata);
     }

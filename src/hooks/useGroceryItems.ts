@@ -121,10 +121,12 @@ export const useGroceryItems = (pairId: string | null, user: User | null) => {
             );
         }
 
-        // Update implicit memory
-        upsertMemoryItem(pairId, name, quantity, imageUrl, imagePath).catch(err => 
-            console.error("Error updating memory:", err)
-        );
+        // Update implicit memory ONLY if it's not from a recipe (manual entry)
+        if (!recipeId) {
+            upsertMemoryItem(pairId, name, quantity, imageUrl, imagePath).catch(err => 
+                console.error("Error updating memory:", err)
+            );
+        }
 
         // If the imageUrl is a local file, we need to upload it in the background
         if (imageUrl && imageUrl.startsWith('file://')) {
@@ -144,8 +146,10 @@ export const useGroceryItems = (pairId: string | null, user: User | null) => {
                     updatedAt: Timestamp.now(),
                 });
 
-                // Also update the memory with the permanent URL
-                upsertMemoryItem(pairId, name, quantity, downloadUrl, filename).catch(() => {});
+                // Also update the memory with the permanent URL ONLY if it's not from a recipe
+                if (!recipeId) {
+                    upsertMemoryItem(pairId, name, quantity, downloadUrl, filename).catch(() => {});
+                }
             } catch (error) {
                 console.error("Error in background image upload:", error);
             }
@@ -157,6 +161,7 @@ export const useGroceryItems = (pairId: string | null, user: User | null) => {
         await updateDoc(itemRef, {
             isDone: !currentStatus,
             updatedAt: Timestamp.now(),
+            ...(user?.uid ? { updatedByUid: user.uid } : {}),
         });
     };
 
@@ -189,6 +194,7 @@ export const useGroceryItems = (pairId: string | null, user: User | null) => {
         await updateDoc(itemRef, {
             ...cleanUpdates,
             updatedAt: Timestamp.now(),
+            ...(user?.uid ? { updatedByUid: user.uid } : {}),
         });
 
         // Update implicit memory with the new details

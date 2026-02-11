@@ -12,6 +12,7 @@ import {
     Easing,
     TextInput,
     ActivityIndicator,
+    KeyboardAvoidingView,
     Platform
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -118,6 +119,7 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: 
     const [image, setImage] = useState<string | null>(initialRecipe.imageUrl || null);
     const [uploading, setUploading] = useState(false);
     const [activeAnimations, setActiveAnimations] = useState<{ id: string; x: number; y: number }[]>([]);
+    const [isBulkAddingVisually, setIsBulkAddingVisually] = useState(false);
     
     const checkboxRefs = useRef<Map<string, any>>(new Map());
 
@@ -276,7 +278,7 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: 
     };
 
     const handleAddIngredient = () => {
-        setIngredients([...ingredients, { id: `${Date.now()}-${Math.random().toString(36).substr(2, 5)}`, name: '', quantity: '', addedToList: false }]);
+        setIngredients([{ id: `${Date.now()}-${Math.random().toString(36).substr(2, 5)}`, name: '', quantity: '', addedToList: false }, ...ingredients]);
     };
 
     const handleRemoveIngredient = (id: string) => {
@@ -328,6 +330,7 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: 
         const isAdded = isIngredientInList(ingredient.name);
 
         if (isAdded) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             // Delete all grocery items for this recipe with this name (handles duplicates)
             const itemsToDelete = groceryItems.filter(item => 
                 item.recipeId === initialRecipe.id && 
@@ -337,7 +340,6 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: 
             if (itemsToDelete.length > 0) {
                 await Promise.all(itemsToDelete.map(item => deleteGroceryItem(item.id)));
             }
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         } else {
             event.target.measure((x: number, y: number, width: number, height: number, pageX: number, pageY: number) => {
                 triggerAnimation(pageX, pageY);
@@ -348,17 +350,21 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: 
         }
     };
 
-    const allAdded = ingredients.length > 0 && ingredients.every(ing => isIngredientInList(ing.name));
+    const allAdded = isBulkAddingVisually || (ingredients.length > 0 && ingredients.every(ing => isIngredientInList(ing.name)));
 
     const handleBulkAction = async () => {
         if (isEditing) return;
 
         if (allAdded) {
+            setIsBulkAddingVisually(false);
             const itemsToDelete = groceryItems.filter(item => item.recipeId === initialRecipe.id && !item.isDone);
             await Promise.all(itemsToDelete.map(item => deleteGroceryItem(item.id)));
             
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } else {
+            // Set visual state IMMEDIATELY on click for instant feedback
+            setIsBulkAddingVisually(true);
+
             // Trigger animations for all items that are about to be added
             ingredients.forEach((ing, index) => {
                 if (!isIngredientInList(ing.name)) {
@@ -374,12 +380,16 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: 
                 }
             });
 
+            // Trigger success haptic after animation completes
+            setTimeout(() => {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            }, 1800);
+
             for (const ing of ingredients) {
                 if (!isIngredientInList(ing.name)) {
                     await addItem(ing.name, undefined, ing.quantity, ing.imageUrl, ing.imagePath, initialRecipe.id);
                 }
             }
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
     };
 
@@ -387,7 +397,12 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: 
         <Animated.View style={[styles.container, { transform: [{ translateX: slideAnim }] }]}>
             <LinearGradient colors={['#DDF3FF', '#FFF6EA']} style={styles.gradient}>
                 <SafeAreaView style={styles.safeArea}>
-                    {/* Header */}
+                    <KeyboardAvoidingView 
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        style={{ flex: 1 }}
+                        keyboardVerticalOffset={Platform.OS === 'ios' ? -200 : 0}
+                    >
+                        {/* Header */}
                     <View style={styles.header}>
                         <TouchableOpacity onPress={isEditing ? handleCancelEdit : handleClose} style={styles.headerButton}>
                             {isEditing ? (
@@ -412,6 +427,7 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: 
                         style={styles.scrollView} 
                         contentContainerStyle={styles.scrollContent}
                         showsVerticalScrollIndicator={false}
+                        automaticallyAdjustKeyboardInsets={true}
                     >
                         {/* Image Section */}
                         {(image || isEditing) && (
@@ -514,10 +530,10 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: 
                                                     if (ref) checkboxRefs.current.set(ingredient.id, ref);
                                                     else checkboxRefs.current.delete(ingredient.id);
                                                 }}
-                                                style={[styles.checkbox, isIngredientInList(ingredient.name) && styles.checkboxFilled]}
+                                                style={[styles.checkbox, (isBulkAddingVisually || isIngredientInList(ingredient.name)) && styles.checkboxFilled]}
                                                 onPress={(e) => handleIngredientAction(ingredient, e)}
                                             >
-                                                {isIngredientInList(ingredient.name) && (
+                                                {(isBulkAddingVisually || isIngredientInList(ingredient.name)) && (
                                                     <Svg width={16} height={16} viewBox="0 0 24 24">
                                                         <Path fill="#FFF7EE" d="M17 2H7c-1.1 0-2 .9-2 2v15a2 2 0 0 0 2 2v1h2v-1h6v1h2v-1c1.11 0 2-.89 2-2V4a2 2 0 0 0-2-2m-7 13H8v-5h2z" />
                                                     </Svg>
@@ -548,11 +564,11 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: 
                                                 </View>
                                             ) : (
                                                 <>
-                                                    <Text style={[styles.ingredientName, isIngredientInList(ingredient.name) && styles.ingredientNameAdded]}>
+                                                    <Text style={[styles.ingredientName, (isBulkAddingVisually || isIngredientInList(ingredient.name)) && styles.ingredientNameAdded]}>
                                                         {ingredient.name}
                                                     </Text>
                                                     {ingredient.quantity && (
-                                                        <Text style={[styles.ingredientQuantity, isIngredientInList(ingredient.name) && styles.ingredientQuantityAdded]}>
+                                                        <Text style={[styles.ingredientQuantity, (isBulkAddingVisually || isIngredientInList(ingredient.name)) && styles.ingredientQuantityAdded]}>
                                                             {ingredient.quantity}
                                                         </Text>
                                                     )}
@@ -587,6 +603,7 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: 
                             </View>
                         )}
                     </ScrollView>
+                    </KeyboardAvoidingView>
                 </SafeAreaView>
             </LinearGradient>
 

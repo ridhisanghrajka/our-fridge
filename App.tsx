@@ -20,6 +20,7 @@ import {
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { PairingProvider } from './src/context/PairingContext';
 import './src/services/locationService'; // Register geofencing task
+import './src/services/notifications'; // Register notification listeners + background task
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();

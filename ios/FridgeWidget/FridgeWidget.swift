@@ -39,6 +39,7 @@ struct Provider: TimelineProvider {
             } catch {
                 print("Error decoding widget data: \(error)")
             }
+        } else {
         }
         
         return SimpleEntry(date: date, data: nil)

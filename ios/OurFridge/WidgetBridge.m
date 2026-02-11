@@ -3,6 +3,7 @@
 @interface RCT_EXTERN_MODULE(WidgetBridge, NSObject)
 
 RCT_EXTERN_METHOD(reloadWidget)
+RCT_EXTERN_METHOD(setWidgetData:(NSString *)json)
 RCT_EXTERN_METHOD(exitApp)
 
 @end

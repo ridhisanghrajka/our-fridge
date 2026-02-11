@@ -15,7 +15,7 @@ import { User } from '../types/User';
 
 const PAIR_ID_KEY = '@OurFridge:pairId';
 const USER_NAME_KEY = '@OurFridge:userName';
-const HAS_ACCOUNT_KEY = '@OurFridge:hasAccount';
+const HAS_COMPLETED_ONBOARDING_KEY = '@OurFridge:hasCompletedOnboarding';
 const FRIDGE_NAME_KEY = '@OurFridge:fridgeName';
 
 /**
@@ -33,17 +33,17 @@ export const getStoredFridgeName = async (): Promise<string | null> => {
 };
 
 /**
- * Set the hasAccount flag in local storage
+ * Set the hasCompletedOnboarding flag in local storage
  */
-export const setHasAccount = async (value: boolean): Promise<void> => {
-    await AsyncStorage.setItem(HAS_ACCOUNT_KEY, JSON.stringify(value));
+export const setHasCompletedOnboarding = async (value: boolean): Promise<void> => {
+    await AsyncStorage.setItem(HAS_COMPLETED_ONBOARDING_KEY, JSON.stringify(value));
 };
 
 /**
- * Get the hasAccount flag from local storage
+ * Get the hasCompletedOnboarding flag from local storage
  */
-export const getHasAccount = async (): Promise<boolean> => {
-    const value = await AsyncStorage.getItem(HAS_ACCOUNT_KEY);
+export const getHasCompletedOnboarding = async (): Promise<boolean> => {
+    const value = await AsyncStorage.getItem(HAS_COMPLETED_ONBOARDING_KEY);
     return value ? JSON.parse(value) : false;
 };
 

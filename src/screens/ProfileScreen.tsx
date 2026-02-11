@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Share, Clipboard, Platform, Switch, ActivityIndicator, Alert, Modal, Pressable } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Share, Clipboard, Platform, Switch, ActivityIndicator, Alert, Modal, Pressable, AppState, AppStateStatus } from 'react-native';
 import { Image } from 'expo-image';
 import { usePairing } from '../hooks/usePairing';
 import { useNotificationPrefs } from '../hooks/useNotificationPrefs';
@@ -12,6 +12,8 @@ import { storage } from '../services/firebase';
 import { SettingsModal } from '../components/SettingsModal';
 import { LocationPickerModal } from '../components/LocationPickerModal';
 import { WidgetInstructionsModal } from '../components/WidgetInstructionsModal';
+import * as Notifications from 'expo-notifications';
+import { checkLocationPermissions } from '../services/locationService';
 
 const CrownIcon = ({ size = 24, color = "#FFD700" }) => (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
@@ -86,6 +88,36 @@ export const ProfileScreen: React.FC = () => {
     const [isSettingsVisible, setIsSettingsVisible] = useState(false);
     const [isWidgetModalVisible, setIsWidgetModalVisible] = useState(false);
     const [locationPickerType, setLocationPickerType] = useState<'departure' | 'store' | null>(null);
+    const [permissions, setPermissions] = useState<{ foreground: boolean; background: boolean; notifications: boolean }>({
+        foreground: false,
+        background: false,
+        notifications: false
+    });
+
+    // Auto-detect permission changes
+    useEffect(() => {
+        const checkPerms = async () => {
+            const perms = await checkLocationPermissions();
+            
+            const { status } = await Notifications.getPermissionsAsync();
+            setPermissions({
+                ...perms,
+                notifications: status === 'granted'
+            });
+        };
+
+        checkPerms();
+
+        const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+            if (nextAppState === 'active') {
+                checkPerms();
+            }
+        });
+
+        return () => {
+            subscription.remove();
+        };
+    }, []);
 
     const pickImage = async () => {
         Alert.alert(
@@ -234,8 +266,8 @@ export const ProfileScreen: React.FC = () => {
     const getReminderStatus = (location: any) => {
         if (!location) return 'not_set';
         if (location.isEnabled === false) return 'paused';
-        // We don't have permissions state here yet, but we can assume active if enabled for now
-        // or better, just show the label. The user specifically asked to match the UI.
+        // Red dot if background location OR notifications are missing
+        if (!permissions.background || !permissions.notifications) return 'incomplete';
         return 'active';
     };
 
@@ -364,9 +396,11 @@ export const ProfileScreen: React.FC = () => {
                                 <StatusDot status={getReminderStatus(reminders?.departureLocation)} />
                                 <Text style={styles.reminderStatus} numberOfLines={1}>
                                     {reminders?.departureLocation 
-                                        ? (getReminderStatus(reminders.departureLocation) === 'paused'
-                                            ? `${reminders.departureLocation.label} • Paused`
-                                            : reminders.departureLocation.label)
+                                        ? (getReminderStatus(reminders.departureLocation) === 'incomplete' 
+                                            ? `${reminders.departureLocation.label} • Setup Incomplete`
+                                            : getReminderStatus(reminders.departureLocation) === 'paused'
+                                                ? `${reminders.departureLocation.label} • Paused`
+                                                : reminders.departureLocation.label)
                                         : "Not set"}
                                 </Text>
                             </View>
@@ -386,9 +420,11 @@ export const ProfileScreen: React.FC = () => {
                                 <StatusDot status={getReminderStatus(reminders?.storeLocation)} />
                                 <Text style={styles.reminderStatus} numberOfLines={1}>
                                     {reminders?.storeLocation 
-                                        ? (getReminderStatus(reminders.storeLocation) === 'paused'
-                                            ? `${reminders.storeLocation.label} • Paused`
-                                            : reminders.storeLocation.label)
+                                        ? (getReminderStatus(reminders.storeLocation) === 'incomplete' 
+                                            ? `${reminders.storeLocation.label} • Setup Incomplete`
+                                            : getReminderStatus(reminders.storeLocation) === 'paused'
+                                                ? `${reminders.storeLocation.label} • Paused`
+                                                : reminders.storeLocation.label)
                                         : "Not set"}
                                 </Text>
                             </View>

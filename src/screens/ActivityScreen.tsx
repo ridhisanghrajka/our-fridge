@@ -69,7 +69,12 @@ export const ActivityScreen: React.FC = () => {
             })) as ActivityLog[];
 
             if (isMore) {
-                setLogs(prev => [...prev, ...newLogs]);
+                setLogs(prev => {
+                    const logMap = new Map(prev.map(log => [log.id, log]));
+                    newLogs.forEach(log => logMap.set(log.id, log));
+                    return Array.from(logMap.values())
+                        .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+                });
             } else {
                 setLogs(newLogs);
             }
@@ -85,10 +90,11 @@ export const ActivityScreen: React.FC = () => {
     };
 
     useEffect(() => {
-        fetchLogs();
+        // fetchLogs(); // REMOVED: Rely on onSnapshot for initial load to prevent duplicates
 
-        // Optional: Real-time listener for the first page
+        // Real-time listener for the first page
         if (pairId) {
+            setLoading(true); // Set loading for initial snapshot
             const thirtyDaysAgo = new Date();
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
             
@@ -107,14 +113,27 @@ export const ActivityScreen: React.FC = () => {
                     timestamp: (doc.data() as any).timestamp.toDate(),
                 })) as ActivityLog[];
                 
-                // Only update if we are on the first page
                 setLogs(prev => {
-                    // This is a simple way to merge real-time updates with paginated results
-                    // For a robust solution, you'd need more complex logic
-                    const otherLogs = prev.filter(p => !updatedLogs.find(u => u.id === p.id));
-                    const combined = [...updatedLogs, ...otherLogs].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-                    return combined.slice(0, prev.length > 30 ? prev.length : 30);
+                    // Use a Map to ensure each log ID is unique
+                    const logMap = new Map(prev.map(log => [log.id, log]));
+                    
+                    // Overwrite/Add the new live logs
+                    updatedLogs.forEach(log => logMap.set(log.id, log));
+                    
+                    // Convert back to array and sort by timestamp descending
+                    return Array.from(logMap.values())
+                        .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
                 });
+
+                // Set lastDoc if it's not already set (for initial pagination)
+                if (!lastDoc && snapshot.docs.length > 0) {
+                    setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+                    setHasMore(snapshot.docs.length === 30);
+                }
+                setLoading(false);
+            }, (error) => {
+                console.error('Error in activity onSnapshot:', error);
+                setLoading(false);
             });
 
             return () => unsubscribe();
@@ -125,8 +144,9 @@ export const ActivityScreen: React.FC = () => {
         const groups: GroupedActivity[] = [];
         logs.forEach(log => {
             const lastGroup = groups[groups.length - 1];
+            // Use a more robust check for grouping
             const isWithinTenMins = lastGroup && 
-                (lastGroup.timestamp.getTime() - log.timestamp.getTime()) < 10 * 60 * 1000;
+                Math.abs(lastGroup.timestamp.getTime() - log.timestamp.getTime()) < 10 * 60 * 1000;
 
             if (lastGroup && 
                 lastGroup.userId === log.userId && 
@@ -138,7 +158,8 @@ export const ActivityScreen: React.FC = () => {
                 }
             } else {
                 groups.push({
-                    id: log.id,
+                    // Create a more unique ID for the group to prevent FlatList key collisions
+                    id: `${log.id}-${log.timestamp.getTime()}`,
                     userId: log.userId,
                     userName: log.userName,
                     userPhoto: log.userPhoto,

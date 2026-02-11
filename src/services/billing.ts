@@ -89,8 +89,11 @@ export const presentPaywall = async (userId?: string): Promise<boolean> => {
                 isPurchased = false;
                 break;
             case PAYWALL_RESULT.PURCHASED:
-            case PAYWALL_RESULT.RESTORED:
                 isPurchased = true;
+                break;
+            case PAYWALL_RESULT.RESTORED:
+                // Check if they actually have the entitlement after restoration
+                isPurchased = await checkPremiumStatus();
                 break;
             default:
                 isPurchased = false;

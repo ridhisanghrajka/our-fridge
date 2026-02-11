@@ -17,7 +17,7 @@ import {
   AppState,
   AppStateStatus
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, Circle as MapCircle } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import { GOOGLE_PLACES_API_KEY } from '../services/google';
@@ -44,6 +44,13 @@ const LocationOffIcon = ({ size = 24, color = "#6B4B3E" }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path d="M11.48 3.49902C11.73 3.16902 12.27 3.16902 12.52 3.49902L15.05 6.84902C15.13 6.95902 15.18 7.08902 15.18 7.21902V7.21902C15.18 7.34902 15.13 7.47902 15.05 7.58902L12.52 10.939C12.27 11.269 11.73 11.269 11.48 10.939L8.95001 7.58902C8.87001 7.47902 8.82001 7.34902 8.82001 7.21902V7.21902C8.82001 7.08902 8.87001 6.95902 8.95001 6.84902L11.48 3.49902Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     <Path d="M22 2L2 22" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+const InfoIcon = ({ size = 16, color = "#6B4B3E" }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
+    <Path d="M12 16V12M12 8H12.01" stroke={color} strokeWidth="2" strokeLinecap="round" />
   </Svg>
 );
 
@@ -343,14 +350,26 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
               }}
             >
               {selectedLocation && (
-                <Marker
-                  coordinate={{
-                    latitude: selectedLocation.latitude,
-                    longitude: selectedLocation.longitude,
-                  }}
-                  title="Selected Location"
-                  pinColor="#6B4B3E"
-                />
+                <>
+                  <Marker
+                    coordinate={{
+                      latitude: selectedLocation.latitude,
+                      longitude: selectedLocation.longitude,
+                    }}
+                    title="Selected Location"
+                    pinColor="#6B4B3E"
+                  />
+                  <MapCircle
+                    center={{
+                      latitude: selectedLocation.latitude,
+                      longitude: selectedLocation.longitude,
+                    }}
+                    radius={title.toLowerCase().includes('departure') ? 300 : 200}
+                    fillColor="rgba(231, 155, 116, 0.15)"
+                    strokeColor="rgba(231, 155, 116, 0.5)"
+                    strokeWidth={2}
+                  />
+                </>
               )}
             </MapView>
             {isEditMode && (
@@ -382,6 +401,18 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
                     </View>
                 </View>
             )}
+          </View>
+
+          <View style={styles.infoCard}>
+            <View style={styles.infoTitleRow}>
+              <InfoIcon size={18} color="#E79B74" />
+              <Text style={styles.infoTitle}>Smart Logic</Text>
+            </View>
+            <Text style={styles.infoDescription}>
+              {title.toLowerCase().includes('departure') 
+                ? "We'll nudge you when you leave this 300m area if there are items on your list."
+                : "We'll nudge you when you arrive within 200m if there are items on your list."}
+            </Text>
           </View>
 
           <View style={styles.formContainer}>
@@ -659,6 +690,36 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
     fontStyle: 'italic',
+  },
+  infoCard: {
+    backgroundColor: '#FDF2E9',
+    padding: 16,
+    borderRadius: 20,
+    marginHorizontal: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#F3E3D7',
+    borderStyle: 'dashed',
+  },
+  infoTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  infoTitle: {
+    fontSize: 14,
+    fontFamily: 'Inter-Bold',
+    color: '#E79B74',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  infoDescription: {
+    fontSize: 13,
+    fontFamily: 'Inter-Medium',
+    color: '#6B4B3E',
+    lineHeight: 18,
+    opacity: 0.8,
   },
   saveButton: {
     backgroundColor: '#6B4B3E',

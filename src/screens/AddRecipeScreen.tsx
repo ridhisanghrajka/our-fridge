@@ -179,6 +179,7 @@ export const AddRecipeScreen: React.FC = () => {
                 <KeyboardAvoidingView 
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                     style={styles.keyboardView}
+                    keyboardVerticalOffset={Platform.OS === 'ios' ? -200 : 0}
                 >
                     <View style={styles.header}>
                         <TouchableOpacity 
@@ -199,11 +200,12 @@ export const AddRecipeScreen: React.FC = () => {
                         </TouchableOpacity>
                     </View>
 
-                    <ScrollView 
-                        style={styles.scrollView}
-                        contentContainerStyle={styles.scrollContent}
-                        showsVerticalScrollIndicator={false}
-                    >
+                        <ScrollView 
+                            style={styles.scrollView}
+                            contentContainerStyle={styles.scrollContent}
+                            showsVerticalScrollIndicator={false}
+                            automaticallyAdjustKeyboardInsets={true}
+                        >
                         {/* Image Placeholder */}
                         <TouchableOpacity 
                             style={styles.imagePlaceholder} 

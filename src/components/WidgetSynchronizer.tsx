@@ -21,7 +21,7 @@ export const WidgetSynchronizer: React.FC = () => {
   // Sync whenever data changes
   useEffect(() => {
     if (pairId && items.length >= 0) {
-      syncDataToWidget(items, note, fridgeName, isPremium);
+      syncDataToWidget(items, note, fridgeName, isPremium, 'WidgetSynchronizer:dataChange');
     }
   }, [items, note, fridgeName, pairId, isPremium]);
 
@@ -33,7 +33,7 @@ export const WidgetSynchronizer: React.FC = () => {
         nextAppState.match(/inactive|background/)
       ) {
         if (pairId && items.length >= 0) {
-          syncDataToWidget(items, note, fridgeName, isPremium);
+          syncDataToWidget(items, note, fridgeName, isPremium, 'WidgetSynchronizer:appBackground');
         }
       }
       appState.current = nextAppState;

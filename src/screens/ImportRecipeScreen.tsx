@@ -72,9 +72,6 @@ export const ImportRecipeScreen: React.FC = () => {
             }
 
             const data = await response.json();
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/1dea1759-9710-4a97-acf7-f3fb6a2f5fbd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ImportRecipeScreen.tsx:75',message:'Raw data from API',data:{data},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H6'})}).catch(()=>{});
-            // #endregion
             
             // Helper to decode HTML entities and clean up strings
             const cleanString = (str: any) => {

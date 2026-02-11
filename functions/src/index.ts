@@ -18,17 +18,28 @@ const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 const INACTIVITY_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
 const RECENT_ACTIVITY_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
 
-async function sendPushNotification(token: string, title: string, body: string, data?: any) {
+async function sendPushNotification(token: string, title: string, body: string, data?: any, isSilent: boolean = false) {
   try {
-    const response = await axios.post(EXPO_PUSH_URL, {
+    const payload: any = {
       to: token,
-      title: title,
-      body: body,
       data: data,
-      sound: "default",
-    });
+    };
 
-    const receipt = response.data.data?.[0];
+    if (!isSilent) {
+      payload.title = title;
+      payload.body = body;
+      payload.sound = "default";
+    } else {
+      // Expo Push API field for iOS "content-available": 1 (silent/background)
+      // See: https://docs.expo.dev/push-notifications/sending-notifications/
+      payload.contentAvailable = true;
+    }
+
+    const response = await axios.post(EXPO_PUSH_URL, payload);
+
+    console.log(`Push sent | Silent: ${isSilent} | Token: ${token.substring(0, 20)}... | Type: ${data?.type}`);
+
+    const receipt = Array.isArray(response.data?.data) ? response.data.data?.[0] : response.data?.data;
     if (receipt?.status === "error") {
       console.log(`Expo error: ${receipt.message}`);
       if (receipt.details?.error === "DeviceNotRegistered") {
@@ -36,7 +47,6 @@ async function sendPushNotification(token: string, title: string, body: string, 
       }
     }
     
-    console.log(`Notification sent to ${token}: ${title}`);
     return "SUCCESS";
   } catch (error: any) {
     console.error("Error sending push notification:", error);
@@ -72,9 +82,13 @@ export const onItemAdded = functions.firestore
       
       // Skip the person who added it
       // Compare userId if available, otherwise fallback to name comparison
-      if (userData.userId === itemData.userId || doc.id === itemData.userId) return;
+      if (userData.userId === itemData.userId || doc.id === itemData.userId) {
+        return;
+      }
 
-      if (!userData.pushToken || !userData.prefs?.notifyFridgeUpdates) return;
+      if (!userData.pushToken || !userData.prefs?.notifyFridgeUpdates) {
+        return;
+      }
 
       const lastSeenAt = userData.lastSeenAt?.toMillis() || 0;
       const lastNotifAt = userData.lastNotifAt?.fridgeUpdated?.toMillis() || 0;
@@ -88,26 +102,139 @@ export const onItemAdded = functions.firestore
       if (timeSinceSeen > INACTIVITY_WINDOW_MS && 
           timeSinceNotif > INACTIVITY_WINDOW_MS &&
           timeSinceSeen > RECENT_ACTIVITY_WINDOW_MS) {
-        
-        const result = await sendPushNotification(
+        await sendPushNotification(
           userData.pushToken,
           "New fridge item!",
           `${createdBy} added ${itemName} to the list.`,
-          { screen: "GroceryList" }
+          { screen: "GroceryList", type: "WIDGET_UPDATE" }
         );
 
-        if (result === "REMOVE_TOKEN") {
-          console.log(`Cleaning up dead token for user ${doc.id}`);
-          await doc.ref.update({
-            pushToken: admin.firestore.FieldValue.delete()
-          });
-        } else if (result === "SUCCESS") {
-          // Update lastNotifAt
-          await doc.ref.update({
-            "lastNotifAt.fridgeUpdated": now
-          });
-        }
+        // Update lastNotifAt
+        await doc.ref.update({
+          "lastNotifAt.fridgeUpdated": now
+        });
+      } else {
+        // SILENT UPDATE: If they are active or recently notified, just update the widget silently
+        await sendPushNotification(
+          userData.pushToken,
+          "",
+          "",
+          { type: "WIDGET_UPDATE" },
+          true
+        );
       }
+    });
+
+    await Promise.all(promises);
+  });
+
+/**
+ * Trigger: When a grocery item is updated (toggle done, rename, quantity, image upload, etc.)
+ * Sends a silent widget refresh to other members so their widgets update quickly.
+ */
+export const onItemUpdated = functions.firestore
+  .document("groceryItems/{itemId}")
+  .onUpdate(async (change) => {
+    const before = change.before.data();
+    const after = change.after.data();
+    if (!after) return;
+
+    const pairId = after.pairId;
+    if (!pairId) return;
+
+    // Best-effort actor detection (client should write this field)
+    const updatedByUid = after.updatedByUid || after.updatedByUserId || null;
+
+    // Get all users in the pair
+    const usersRef = db.collection("pairs").doc(pairId).collection("users");
+    const usersSnapshot = await usersRef.get();
+
+    const promises = usersSnapshot.docs.map(async (doc) => {
+      const userData = doc.data();
+
+      // Skip the person who updated it (if we can detect them)
+      const isSender = !!updatedByUid && (userData.userId === updatedByUid || doc.id === updatedByUid);
+      const hasToken = !!userData.pushToken;
+      // Default to "enabled" if prefs are missing (older docs)
+      const notifyEnabled = userData.prefs?.notifyFridgeUpdates !== false;
+
+      if (isSender) return;
+      if (!hasToken) return;
+      if (!notifyEnabled) return;
+
+      await sendPushNotification(
+        userData.pushToken,
+        "",
+        "",
+        { type: "WIDGET_UPDATE" },
+        true
+      );
+    });
+
+    await Promise.all(promises);
+  });
+
+/**
+ * Trigger: When a grocery item is deleted
+ * Sends a silent widget refresh so the removed item disappears promptly.
+ */
+export const onItemDeleted = functions.firestore
+  .document("groceryItems/{itemId}")
+  .onDelete(async (snapshot) => {
+    const itemData = snapshot.data();
+    if (!itemData) return;
+
+    const pairId = itemData.pairId;
+    if (!pairId) return;
+
+    const usersRef = db.collection("pairs").doc(pairId).collection("users");
+    const usersSnapshot = await usersRef.get();
+
+    const promises = usersSnapshot.docs.map(async (doc) => {
+      const userData = doc.data();
+      if (!userData.pushToken || !userData.prefs?.notifyFridgeUpdates) return;
+
+      await sendPushNotification(
+        userData.pushToken,
+        "",
+        "",
+        { type: "WIDGET_UPDATE" },
+        true
+      );
+    });
+
+    await Promise.all(promises);
+  });
+
+/**
+ * Trigger: When a shared note is updated
+ */
+export const onNoteUpdated = functions.firestore
+  .document("sharedNotes/{pairId}")
+  .onWrite(async (change, context) => {
+    const pairId = context.params.pairId;
+    const noteData = change.after.data();
+    if (!noteData) return;
+
+    // Get all users in the pair
+    const usersRef = db.collection("pairs").doc(pairId).collection("users");
+    const usersSnapshot = await usersRef.get();
+
+    const promises = usersSnapshot.docs.map(async (doc) => {
+      const userData = doc.data();
+      
+      // Skip the person who updated it
+      if (userData.userId === noteData.updatedByUid || doc.id === noteData.updatedByUid) return;
+      if (!userData.pushToken) return;
+
+      // Always send a silent update for notes to keep the widget fresh
+      await sendPushNotification(
+        userData.pushToken,
+        "",
+        "",
+        { type: "WIDGET_UPDATE" },
+        true
+      );
     });
 
     await Promise.all(promises);

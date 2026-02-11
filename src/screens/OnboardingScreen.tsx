@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
     View,
     Text,
@@ -16,7 +16,8 @@ import {
     ActivityIndicator,
     FlatList,
     NativeSyntheticEvent,
-    NativeScrollEvent
+    NativeScrollEvent,
+    Keyboard
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -116,7 +117,11 @@ const OnboardingIcon = ({ type, bounceAnim }: { type: 'welcome' | 'notifications
     }
 };
 
-export const OnboardingScreen: React.FC = () => {
+interface OnboardingScreenProps {
+    onFinish: () => void;
+}
+
+export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onFinish }) => {
     const { 
         createNewPair, 
         joinExistingPair, 
@@ -130,42 +135,54 @@ export const OnboardingScreen: React.FC = () => {
         sendPasswordReset,
         signInWithApple,
         setUserName,
+        logout,
         loading,
         userLoading,
+        isAuthTransitioning,
+        setIsAuthTransitioning,
         error: authError,
-        hasAccount
+        hasCompletedOnboarding
     } = usePairing();
 
     const [step, setStep] = useState(() => {
-        if (user && !pairId) return 5;   // Setup Choice if logged in but no fridge
-        return 1;                       // Always start at Welcome carousel to prevent Step 8 flicker
+        // 1. If logged in but no fridge -> Go to Fridge Setup (Step 5)
+        if (user && !user.fridgeId) return 5;
+        
+        // 2. If finished onboarding before but logged out -> Go to Sign In (Step 4)
+        if (hasCompletedOnboarding && !user) return 4;
+        
+        // 3. New user carousel
+        return 1;
     });
 
-    // Handle returning users who logged out
-    React.useEffect(() => {
-        const checkStatusAndRedirect = async () => {
-            if (!user && !pairId && hasAccount && step === 1) {
-                if (Device.isDevice) {
-                    const { status } = await Notifications.getPermissionsAsync();
-                    if (status !== 'undetermined') {
-                        setStep(4); // Skip to Sign In only if notifications already handled
-                    }
-                } else {
-                    setStep(4); // On simulator, just skip
-                }
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    // Reset step when user logs out to ensure they land on Sign In page
+    useEffect(() => {
+        if (isProcessing || isAuthTransitioning) return; // 🔒 Guard: Don't redirect during auth transitions
+
+        // If the user session ends while they are in any post-auth setup step (5-9),
+        // send them back to the Sign In page (Step 4).
+        setStep(currentStep => {
+            if (!user && currentStep >= 5) {
+                return 4;
             }
-        };
-        checkStatusAndRedirect();
-    }, [hasAccount, user, pairId]);
+            return currentStep;
+        });
+    }, [user, isProcessing, isAuthTransitioning]);
+
+    // Handle returning users who logged out
+    // Removed: The Navigator now handles this using the hasCompletedOnboarding latch.
+    // This prevents the carousel from flashing for returning users.
     const [nameError, setNameError] = useState('');
     const [email, setEmail] = useState('');
     const [emailError, setEmailError] = useState('');
     const [password, setPassword] = useState('');
     const [passwordError, setPasswordError] = useState('');
+    const [hasAuthError, setHasAuthError] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [fridgeName, setFridgeName] = useState('');
     const [pairingCode, setPairingCode] = useState('');
-    const [isProcessing, setIsProcessing] = useState(false);
     const [generatedCode, setGeneratedCode] = useState<string | null>(null);
     const [currentCarouselIndex, setCurrentCarouselIndex] = useState(0);
     const flatListRef = useRef<FlatList>(null);
@@ -204,9 +221,11 @@ export const OnboardingScreen: React.FC = () => {
     };
 
     const handleSignUp = async () => {
+        Keyboard.dismiss(); // 🔴 Break interaction chain
         setNameError('');
         setEmailError('');
         setPasswordError('');
+        setHasAuthError(false);
 
         let hasError = false;
         if (!userName?.trim()) {
@@ -237,13 +256,26 @@ export const OnboardingScreen: React.FC = () => {
         }
 
         setIsProcessing(true);
+        setIsAuthTransitioning(true); // 🔒 Lock navigator
         try {
             await signUp(email.trim(), password.trim(), userName?.trim() || '');
             nextStep(5); // Move to setup choice
         } catch (err: any) {
-            Alert.alert('Sign Up Error', err.message || 'Failed to create account');
+            setHasAuthError(true);
+            setPassword(''); // Clear password to break credential chain and prevent save prompt
+            
+            if (err.code === 'auth/email-already-in-use') {
+                setEmailError('This email is already registered.');
+            } else if (err.code === 'auth/invalid-email') {
+                setEmailError('Please enter a valid email address.');
+            } else if (err.code === 'auth/weak-password') {
+                setPasswordError('Password must be at least 6 characters.');
+            } else {
+                Alert.alert('Sign Up Error', err.message || 'Failed to create account');
+            }
         } finally {
             setIsProcessing(false);
+            setIsAuthTransitioning(false); // 🔓 Unlock navigator
         }
     };
 
@@ -253,13 +285,19 @@ export const OnboardingScreen: React.FC = () => {
             return;
         }
         setIsProcessing(true);
+        setIsAuthTransitioning(true);
         try {
-            await signIn(email.trim(), password.trim());
-            // Auth listener in context will handle navigation if they already have a fridge
+            const userData = await signIn(email.trim(), password.trim());
+            // If the user already has a fridge, we can finish onboarding immediately
+            if (userData?.fridgeId) {
+                completeOnboarding();
+                onFinish();
+            }
         } catch (err: any) {
             Alert.alert('Sign In Error', err.message || 'Failed to sign in');
         } finally {
             setIsProcessing(false);
+            setIsAuthTransitioning(false);
         }
     };
 
@@ -284,13 +322,20 @@ export const OnboardingScreen: React.FC = () => {
     };
 
     const handleAppleSignIn = async () => {
+        setIsAuthTransitioning(true);
         try {
-            await signInWithApple();
-            // Auth listener will handle redirection
+            const userData = await signInWithApple();
+            // If the user already has a fridge, we can finish onboarding immediately
+            if (userData && 'fridgeId' in userData && userData.fridgeId) {
+                completeOnboarding();
+                onFinish();
+            }
         } catch (err: any) {
             if (err.code !== 'ERR_REQUEST_CANCELED') {
                 Alert.alert('Apple Sign In Error', err.message || 'Failed to sign in with Apple');
             }
+        } finally {
+            setIsAuthTransitioning(false);
         }
     };
 
@@ -323,6 +368,10 @@ export const OnboardingScreen: React.FC = () => {
         try {
             const code = await createNewPair(finalName, fridgeName.trim() || undefined);
             setGeneratedCode(code);
+            
+            // Mark onboarding as complete immediately so the milestone is saved
+            completeOnboarding();
+            
             nextStep(8); // Move to Success/Share
         } catch (err: any) {
             Alert.alert('Error', err.message || 'Failed to create fridge');
@@ -351,6 +400,7 @@ export const OnboardingScreen: React.FC = () => {
         try {
             await joinExistingPair(pairingCode.trim(), finalName);
             completeOnboarding(); 
+            onFinish(); // Signal completion to Navigator
         } catch (err: any) {
             Alert.alert('Error', err.message || 'Failed to join fridge');
         } finally {
@@ -437,7 +487,7 @@ export const OnboardingScreen: React.FC = () => {
             if (shouldShowNotifications) {
                 nextStep(9);
             } else {
-                nextStep(hasAccount ? 4 : 2);
+                nextStep(hasCompletedOnboarding ? 4 : 2);
             }
         }
     };
@@ -464,6 +514,27 @@ export const OnboardingScreen: React.FC = () => {
                     </View>
                 </View>
             </View>
+        );
+    };
+
+    const handleLogout = () => {
+        Alert.alert(
+            "Log Out",
+            "Are you sure you want to log out?",
+            [
+                { text: "Cancel", style: "cancel" },
+                { 
+                    text: "Log Out", 
+                    style: "destructive",
+                    onPress: async () => {
+                        await logout();
+                        // Reset internal step to Sign In (Step 4) for the next render
+                        setStep(4);
+                        // Do NOT call onFinish() here. Logout is NOT finishing onboarding.
+                        // AppNavigator will see user is null and stay in OnboardingScreen.
+                    }
+                }
+            ]
         );
     };
 
@@ -565,13 +636,26 @@ export const OnboardingScreen: React.FC = () => {
                                         onChangeText={(text) => {
                                             setEmail(text);
                                             if (emailError) setEmailError('');
+                                            if (hasAuthError) setHasAuthError(false);
                                         }}
                                         autoCapitalize="none"
                                         keyboardType="email-address"
                                         textContentType="emailAddress"
                                         autoCorrect={false}
                                     />
-                                    {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+                                    {emailError ? (
+                                        <Text style={styles.errorText}>
+                                            {emailError}{' '}
+                                            {emailError.includes('registered') && (
+                                                <Text 
+                                                    style={styles.linkText} 
+                                                    onPress={() => nextStep(4)}
+                                                >
+                                                    Sign in
+                                                </Text>
+                                            )}
+                                        </Text>
+                                    ) : null}
 
                                     <Text style={styles.label}>Password</Text>
                                     <View style={styles.passwordInputContainer}>
@@ -582,9 +666,11 @@ export const OnboardingScreen: React.FC = () => {
                                             onChangeText={(text) => {
                                                 setPassword(text);
                                                 if (passwordError) setPasswordError('');
+                                                if (hasAuthError) setHasAuthError(false);
                                             }}
                                             secureTextEntry={!showPassword}
-                                            textContentType="newPassword"
+                                            textContentType={hasAuthError ? 'none' : 'newPassword'}
+                                            autoComplete={hasAuthError ? 'off' : 'password'}
                                             autoCapitalize="none"
                                             autoCorrect={false}
                                         />
@@ -630,10 +716,6 @@ export const OnboardingScreen: React.FC = () => {
                                         <Text style={styles.footerLink}>Sign In</Text>
                                     </TouchableOpacity>
                                 </View>
-
-                                <TouchableOpacity style={[styles.backButton, { marginTop: 24 }]} onPress={() => nextStep(1)}>
-                                    <Text style={styles.backButtonText}>Back to Welcome</Text>
-                                </TouchableOpacity>
                             </View>
                         </ScrollView>
                     </KeyboardAvoidingView>
@@ -716,10 +798,6 @@ export const OnboardingScreen: React.FC = () => {
                                         <Text style={styles.footerLink}>Create Account</Text>
                                     </TouchableOpacity>
                                 </View>
-
-                                <TouchableOpacity style={[styles.backButton, { marginTop: 24 }]} onPress={() => nextStep(1)}>
-                                    <Text style={styles.backButtonText}>Back to Welcome</Text>
-                                </TouchableOpacity>
                             </View>
                         </ScrollView>
                     </KeyboardAvoidingView>
@@ -750,6 +828,13 @@ export const OnboardingScreen: React.FC = () => {
                                 <Text style={styles.choiceTitle}>Join Fridge</Text>
                             </TouchableOpacity>
                         </View>
+
+                        <TouchableOpacity 
+                            style={styles.textLinkButton} 
+                            onPress={handleLogout}
+                        >
+                            <Text style={styles.textLink}>Sign out</Text>
+                        </TouchableOpacity>
                     </View>
                 );
 
@@ -857,7 +942,13 @@ export const OnboardingScreen: React.FC = () => {
                         </View>
 
                         <View style={{ paddingHorizontal: 24 }}>
-                            <TouchableOpacity style={[styles.primaryButton, styles.buttonGlow]} onPress={completeOnboarding}>
+                            <TouchableOpacity 
+                                style={[styles.primaryButton, styles.buttonGlow]} 
+                                onPress={() => {
+                                    completeOnboarding();
+                                    onFinish();
+                                }}
+                            >
                                 <Text style={styles.buttonText}>Next</Text>
                             </TouchableOpacity>
                         </View>
@@ -901,7 +992,7 @@ export const OnboardingScreen: React.FC = () => {
                             style={[styles.primaryButton, styles.buttonGlow]} 
                             onPress={async () => {
                                 await registerForPushNotificationsAsync(true);
-                                nextStep(hasAccount ? 4 : 2);
+                                nextStep(hasCompletedOnboarding ? 4 : 2);
                             }}
                         >
                             <Text style={styles.buttonText}>Enable Notifications</Text>
@@ -909,7 +1000,7 @@ export const OnboardingScreen: React.FC = () => {
                         
                         <TouchableOpacity 
                             style={styles.textLinkButton} 
-                            onPress={() => nextStep(hasAccount ? 4 : 2)}
+                            onPress={() => nextStep(hasCompletedOnboarding ? 4 : 2)}
                         >
                             <Text style={[styles.textLink, styles.smallLink]}>Not Now</Text>
                         </TouchableOpacity>
@@ -1108,16 +1199,21 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     inputError: {
-        borderColor: '#E79B74',
+        borderColor: '#BC4B41',
         borderWidth: 1.5,
     },
     errorText: {
-        color: '#E79B74',
+        color: '#BC4B41',
         fontSize: 12,
         fontFamily: 'Inter-SemiBold',
         marginTop: -16,
         marginBottom: 16,
         marginLeft: 4,
+    },
+    linkText: {
+        color: '#6B4B3E',
+        fontFamily: 'Inter-Bold',
+        textDecorationLine: 'underline',
     },
     backButton: {
         padding: 12,
@@ -1165,7 +1261,7 @@ const styles = StyleSheet.create({
     scrollContainer: {
         flexGrow: 1,
         justifyContent: 'center',
-        paddingBottom: 40,
+        paddingBottom: 20,
     },
     smallHeroImage: {
         width: 120,

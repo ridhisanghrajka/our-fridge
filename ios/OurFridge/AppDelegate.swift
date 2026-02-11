@@ -1,6 +1,7 @@
 import Expo
 import React
 import ReactAppDependencyProvider
+import Foundation
 
 @UIApplicationMain
 public class AppDelegate: ExpoAppDelegate {
@@ -50,6 +51,7 @@ public class AppDelegate: ExpoAppDelegate {
     let result = RCTLinkingManager.application(application, continue: userActivity, restorationHandler: restorationHandler)
     return super.application(application, continue: userActivity, restorationHandler: restorationHandler) || result
   }
+
 }
 
 class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {

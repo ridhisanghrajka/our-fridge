@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import firebase from 'firebase/compat/app';
-import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { db, auth } from '../services/firebase';
@@ -24,10 +24,10 @@ import {
     sendResetEmail as sendResetEmailService,
     signInWithAppleCredential as signInWithAppleService,
     clearPairing,
-    setHasAccount,
-    getHasAccount,
+    getHasCompletedOnboarding,
     getStoredFridgeName,
-    setStoredFridgeName
+    setStoredFridgeName,
+    setHasCompletedOnboarding
 } from '../services/pairing';
 import { initializeBilling } from '../services/billing';
 import { registerForPushNotificationsAsync, updateUserMetadata } from '../services/notifications';
@@ -42,11 +42,10 @@ interface PairingContextType {
     loading: boolean;
     userLoading: boolean;
     error: string | null;
-    isOnboarding: boolean;
+    isAuthTransitioning: boolean;
+    setIsAuthTransitioning: (value: boolean) => void;
+    hasCompletedOnboarding: boolean;
     isHydrated: boolean;
-    hasAccount: boolean;
-    isPremium: boolean;
-    refreshPremiumStatus: () => Promise<void>;
     completeOnboarding: () => void;
     createNewPair: (name: string, fridgeName?: string) => Promise<string>;
     joinExistingPair: (code: string, name: string) => Promise<void>;
@@ -57,11 +56,16 @@ interface PairingContextType {
     updateUserPhoto: (photoURL: string) => Promise<void>;
     updateCreatedAt: (newDate: Date) => Promise<void>;
     cachedFridgeName: string | null;
-    signUp: (email: string, password: string, name: string) => Promise<void>;
-    signIn: (email: string, password: string) => Promise<void>;
+    signUp: (email: string, password: string, name: string) => Promise<User>;
+    signIn: (email: string, password: string) => Promise<User>;
     sendPasswordReset: (email: string) => Promise<void>;
-    signInWithApple: () => Promise<void>;
+    signInWithApple: () => Promise<User | void>;
     logout: () => Promise<void>;
+    deleteAccount: () => Promise<void>;
+    reauthenticate: (credential: firebase.auth.AuthCredential) => Promise<void>;
+    isDeletingAccount: boolean;
+    isPremium: boolean;
+    refreshPremiumStatus: () => Promise<void>;
 }
 
 const PairingContext = createContext<PairingContextType | undefined>(undefined);
@@ -75,11 +79,15 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
     const [userName, setUserName] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [userLoading, setUserLoading] = useState(true);
+    const [isAuthTransitioning, setIsAuthTransitioning] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [isOnboarding, setIsOnboarding] = useState(true);
+    const [hasCompletedOnboarding, setHasCompletedOnboardingState] = useState(false);
     const [isHydrated, setIsHydrated] = useState(false);
-    const [hasAccount, setHasAccountState] = useState(false);
     const [isPremiumSDK, setIsPremiumSDK] = useState(false);
+    const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
+    // Refs for Firestore listeners to allow atomic cleanup
+    const pairUnsubRef = useRef<(() => void) | null>(null);
 
     const refreshPremiumStatus = async () => {
         const { checkPremiumStatus, syncPremiumStatusToFirebase } = require('../services/billing');
@@ -106,15 +114,14 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
             try {
                 const storedPairId = await getStoredPairId();
                 const storedUserName = await getStoredUserName();
-                const storedHasAccount = await getHasAccount();
+                const storedHasCompletedOnboarding = await getHasCompletedOnboarding();
                 const storedFridgeName = await getStoredFridgeName();
                 
-                if (storedHasAccount) setHasAccountState(true);
+                if (storedHasCompletedOnboarding) setHasCompletedOnboardingState(true);
                 if (storedPairId) setPairId(storedPairId);
                 if (storedFridgeName) setCachedFridgeName(storedFridgeName);
                 if (storedUserName) {
                     setUserName(storedUserName);
-                    setIsOnboarding(false);
                 }
             } catch (err) {
                 console.error('Error loading stored pairing data:', err);
@@ -149,10 +156,8 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
                     // Sync user name state
                     if (userData.name) {
                         setUserName(userData.name);
-                        setIsOnboarding(false);
                     } else {
                         setUserName(null);
-                        setIsOnboarding(true);
                     }
                     
                     // Initialize billing
@@ -170,9 +175,8 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
                 // User is signed out
                 setUser(null);
                 setPairId(null);
-                setUserName(null);
-                setIsOnboarding(true);
-                setUserLoading(false);
+            setUserName(null);
+            setUserLoading(false);
             }
         });
 
@@ -185,9 +189,22 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
 
         const syncNotifications = async () => {
             try {
-                // 1. Get current token (fast if already granted)
+                // 1. Try to get current token (fast if already granted)
                 // Passing false to avoid triggering system prompt automatically
-                const token = await registerForPushNotificationsAsync(false);
+                let token = await registerForPushNotificationsAsync(false);
+
+                // If we still don't have a token, but Firestore also has no token stored,
+                // then we *must* prompt the user (otherwise this device will never receive widget updates).
+                try {
+                    const userRef = doc(db, 'pairs', pairId, 'users', user.uid);
+                    const userSnap = await getDoc(userRef);
+                    const existingPushToken = userSnap.exists() ? (userSnap.data() as any)?.pushToken : null;
+
+                    if (!token && !existingPushToken) {
+                        token = await registerForPushNotificationsAsync(true);
+                    }
+                } catch (e) {
+                }
                 
                 // 2. Sync to Firestore (updates lastSeenAt + token)
                 // This informs the "Calm Logic" that the user is currently active
@@ -211,10 +228,29 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     // Listen to pair updates when pairId is set
     useEffect(() => {
+        if (isAuthTransitioning) return; // 🔒 Guard: Don't auto-complete during transitions
+
+        if (user?.fridgeId && !hasCompletedOnboarding) {
+            completeOnboarding();
+        }
+    }, [user?.fridgeId, hasCompletedOnboarding, isAuthTransitioning]);
+
+    // Listen to pair updates when pairId is set
+    useEffect(() => {
         if (!pairId) {
+            if (pairUnsubRef.current) {
+                pairUnsubRef.current();
+                pairUnsubRef.current = null;
+            }
             setPair(null);
             setLoading(false);
             return;
+        }
+
+        // Clean up old listener first
+        if (pairUnsubRef.current) {
+            pairUnsubRef.current();
+            pairUnsubRef.current = null;
         }
 
         setLoading(true);
@@ -222,23 +258,23 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
         const unsubscribe = onSnapshot(pairRef, (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.data();
-                    const fridgeName = data.fridgeName || '';
-                    setPair({
-                        id: snapshot.id,
-                        memberUids: data.memberUids || [],
-                        memberNames: data.memberNames || {},
-                        memberPhotos: data.memberPhotos || {},
-                        fridgeName: fridgeName,
-                        isPremiumEnabled: data.isPremiumEnabled || false,
-                        createdAt: data.createdAt?.toDate() || new Date(),
-                    });
-                    // Update cache
-                    if (fridgeName) {
-                        setCachedFridgeName(fridgeName);
-                        setStoredFridgeName(fridgeName).catch(err => 
-                            console.error("Error caching fridge name:", err)
-                        );
-                    }
+                const fridgeName = data.fridgeName || '';
+                setPair({
+                    id: snapshot.id,
+                    memberUids: data.memberUids || [],
+                    memberNames: data.memberNames || {},
+                    memberPhotos: data.memberPhotos || {},
+                    fridgeName: fridgeName,
+                    isPremiumEnabled: data.isPremiumEnabled || false,
+                    createdAt: data.createdAt?.toDate() || new Date(),
+                });
+                // Update cache
+                if (fridgeName) {
+                    setCachedFridgeName(fridgeName);
+                    setStoredFridgeName(fridgeName).catch(err => 
+                        console.error("Error caching fridge name:", err)
+                    );
+                }
             } else if (pairId) {
                 console.log("Pair document does not exist for ID:", pairId);
                 setPair(null);
@@ -249,14 +285,21 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
             setLoading(false);
         });
 
-        return () => unsubscribe();
+        pairUnsubRef.current = unsubscribe;
+
+        return () => {
+            if (pairUnsubRef.current) {
+                pairUnsubRef.current();
+                pairUnsubRef.current = null;
+            }
+        };
     }, [pairId]);
 
     const signUp = async (email: string, password: string, name: string) => {
         setError(null);
         setUserLoading(true);
         try {
-            await signUpService(email, password, name);
+            return await signUpService(email, password, name);
         } catch (err: any) {
             setError(err.message || 'Failed to sign up');
             throw err;
@@ -269,7 +312,7 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
         setError(null);
         setUserLoading(true);
         try {
-            await signInService(email, password);
+            return await signInService(email, password);
         } catch (err: any) {
             setError(err.message || 'Failed to sign in');
             throw err;
@@ -307,7 +350,7 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
                 // Note: nonce is optional for Firebase Apple Auth modular SDK if not specifically required by your project settings, 
                 // but let's provide a placeholder or handle it if needed. 
                 // For simplicity with Firebase v9+, usually identityToken is enough if nonce isn't enforced.
-                await signInWithAppleService(credential.identityToken, '', fullName || undefined, credential.email || undefined);
+                return await signInWithAppleService(credential.identityToken, '', fullName || undefined, credential.email || undefined);
             }
         } catch (err: any) {
             if (err.code !== 'ERR_REQUEST_CANCELED') {
@@ -321,15 +364,70 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const logout = async () => {
         try {
+            // 1. Kill listeners FIRST to stop the flow of old data
+            if (pairUnsubRef.current) {
+                pairUnsubRef.current();
+                pairUnsubRef.current = null;
+            }
+
+            // 2. Clear all in-memory state synchronously
+            setPairId(null);
+            setPair(null);
+            setUser(null);
+            setUserName(null);
+            setCachedFridgeName(null);
+            setPendingPairId(null);
+            setError(null);
+
+            // 3. Clear disk cache
+            await clearPairing();
+
+            // 4. Sign out from Firebase last
             await signOut(auth);
+        } catch (err) {
+            console.error('Error logging out:', err);
+        }
+    };
+
+    const reauthenticate = async (credential: firebase.auth.AuthCredential) => {
+        const currentUser = auth.currentUser;
+        if (!currentUser) throw new Error('No authenticated user');
+        
+        const { reauthenticateWithCredential } = await import('firebase/auth');
+        await reauthenticateWithCredential(currentUser, credential);
+    };
+
+    const deleteAccount = async () => {
+        if (!user) return;
+        setIsDeletingAccount(true);
+        try {
+            // 1. Leave or delete the fridge first (handles data cleanup)
+            // This must happen while the user is still authenticated
+            if (pairId) {
+                await leaveFridgeService(pairId, user.uid);
+            }
+
+            // 2. Delete the user document from Firestore
+            const userRef = doc(db, 'users', user.uid);
+            await deleteDoc(userRef);
+
+            // 3. Delete the Firebase Auth user
+            const currentUser = auth.currentUser;
+            if (currentUser) {
+                await currentUser.delete();
+            }
+
+            // 4. Cleanup local state
             await clearPairing();
             setPairId(null);
             setPair(null);
             setUser(null);
             setUserName(null);
-            setIsOnboarding(true);
-        } catch (err) {
-            console.error('Error logging out:', err);
+        } catch (err: any) {
+            console.error('Error deleting account:', err);
+            throw err; // Re-throw to handle in UI (e.g., re-auth error)
+        } finally {
+            setIsDeletingAccount(false);
         }
     };
 
@@ -339,9 +437,17 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
             if (!auth.currentUser) throw new Error('You must be signed in to create a fridge.');
             
             const code = generatePairingCode();
-            await createPairService(code, auth.currentUser.uid, name, fridgeName || `${name}'s Fridge`);
+            const finalFridgeName = fridgeName || `${name}'s Fridge`;
+            await createPairService(code, auth.currentUser.uid, name, finalFridgeName);
             setPendingPairId(code);
             setUserName(name);
+            setCachedFridgeName(finalFridgeName); // Update cache immediately
+            await setStoredFridgeName(finalFridgeName); // Persist to storage
+
+            // Fetch updated user data immediately so AppNavigator sees the fridgeId
+            const updatedUser = await getUser(auth.currentUser.uid);
+            if (updatedUser) setUser(updatedUser);
+
             return code;
         } catch (err: any) {
             setError(err.message || 'Failed to create pair');
@@ -357,6 +463,15 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
             await joinPairService(code, auth.currentUser.uid, name);
             setPairId(code);
             setUserName(name);
+
+            // Fetch updated user data immediately so AppNavigator sees the fridgeId
+            const updatedUser = await getUser(auth.currentUser.uid);
+            if (updatedUser) {
+                setUser(updatedUser);
+                // If we joined, we don't have the fridge name yet, 
+                // but clearing the old one ensures we don't show the ghost name
+                setCachedFridgeName(null); 
+            }
         } catch (err: any) {
             setError(err.message || 'Failed to join pair');
             throw err;
@@ -414,9 +529,8 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
             setPairId(pendingPairId);
             setPendingPairId(null);
         }
-        setIsOnboarding(false);
-        setHasAccount(true);
-        setHasAccountState(true);
+        setHasCompletedOnboarding(true);
+        setHasCompletedOnboardingState(true);
     };
 
     const combinedIsPremium = isPremiumSDK || user?.isPremium || pair?.isPremiumEnabled || false;
@@ -430,10 +544,11 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
             userName,
             loading,
             userLoading,
+            isAuthTransitioning,
+            setIsAuthTransitioning,
             error,
-            isOnboarding,
+            hasCompletedOnboarding,
             isHydrated,
-            hasAccount,
             isPremium: combinedIsPremium,
             refreshPremiumStatus,
             completeOnboarding,
@@ -451,6 +566,9 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
             sendPasswordReset,
             signInWithApple,
             logout,
+            deleteAccount,
+            reauthenticate,
+            isDeletingAccount,
         }}>
             {children}
         </PairingContext.Provider>

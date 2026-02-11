@@ -12,18 +12,21 @@ import {
     Platform,
     Share,
     Clipboard,
-    Linking
+    Linking,
+    ActivityIndicator
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { usePairing } from '../hooks/usePairing';
 import { useNotificationPrefs } from '../hooks/useNotificationPrefs';
 import { LocationPickerModal } from './LocationPickerModal';
+import { ReauthModal } from './ReauthModal';
 import { 
     registerGeofences,
     checkLocationPermissions,
     stopGeofencing
 } from '../services/locationService';
+import { restorePurchases, syncPremiumStatusToFirebase } from '../services/billing';
 import * as Location from 'expo-location';
 import { AppState, AppStateStatus } from 'react-native';
 
@@ -111,11 +114,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
         updateFridgeName, 
         updateUserName, 
         unpair, 
-        logout 
+        logout,
+        deleteAccount,
+        reauthenticate,
+        isDeletingAccount,
+        refreshPremiumStatus 
     } = usePairing();
     
     const { prefs, reminders, updatePrefs, saveAndRegisterLocation } = useNotificationPrefs(pairId, user?.uid || null);
 
+    const [isRestoring, setIsRestoring] = useState(false);
+    const [isReauthVisible, setIsReauthVisible] = useState(false);
     const [isEditingUser, setIsEditingUser] = useState(false);
     const [tempUserName, setTempUserName] = useState(userName || '');
     
@@ -263,6 +272,72 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
                 }
             ]
         );
+    };
+
+    const handleRestorePurchases = async () => {
+        if (isRestoring) return;
+        
+        setIsRestoring(true);
+        try {
+            const customerInfo = await restorePurchases();
+            
+            // Check if the specific entitlement is active
+            // This matches the ID used in billing.ts: 'Our Fridge -  Pro'
+            const isPro = typeof customerInfo.entitlements.active['Our Fridge -  Pro'] !== "undefined";
+            
+            if (isPro) {
+                if (user?.uid) {
+                    await syncPremiumStatusToFirebase(user.uid, true);
+                    if (refreshPremiumStatus) {
+                        await refreshPremiumStatus();
+                    }
+                    Alert.alert("Success", "Your Pro subscription has been restored!");
+                }
+            } else {
+                Alert.alert("No Purchase Found", "We couldn't find an active subscription for this account.");
+            }
+        } catch (e) {
+            console.error("Restore error:", e);
+            Alert.alert("Error", "Failed to restore purchases. Please try again later.");
+        } finally {
+            setIsRestoring(false);
+        }
+    };
+
+    const handleDeleteAccount = () => {
+        Alert.alert(
+            "Delete Account?",
+            "This will permanently delete your profile and all your personal data. This cannot be undone.",
+            [
+                { text: "Cancel", style: "cancel" },
+                { 
+                    text: "Delete My Account", 
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await deleteAccount();
+                            onClose();
+                        } catch (err: any) {
+                            if (err.code === 'auth/requires-recent-login') {
+                                setIsReauthVisible(true);
+                            } else {
+                                Alert.alert("Error", "Failed to delete account. Please try again.");
+                            }
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleReauthSuccess = async () => {
+        setIsReauthVisible(false);
+        try {
+            await deleteAccount();
+            onClose();
+        } catch (err: any) {
+            Alert.alert("Error", "Failed to delete account after verification. Please try again.");
+        }
     };
 
     const formatDate = (date: Date) => {
@@ -466,6 +541,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
                             <Text style={styles.rowLabel}>Terms & conditions</Text>
                             <ExternalLinkIcon />
                         </TouchableOpacity>
+                        <TouchableOpacity style={styles.row} onPress={handleRestorePurchases} disabled={isRestoring}>
+                            <Text style={styles.rowLabel}>Restore purchases</Text>
+                            {isRestoring ? (
+                                <ActivityIndicator size="small" color="#6B4B3E" />
+                            ) : (
+                                <ChevronRightIcon />
+                            )}
+                        </TouchableOpacity>
                         <TouchableOpacity style={[styles.row, styles.noBorder]} onPress={() => openLink('https://ourfridgeapp.com/support/')}>
                             <Text style={styles.rowLabel}>Contact support</Text>
                             <ExternalLinkIcon />
@@ -473,17 +556,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
                     </View>
 
                     {/* Danger Zone */}
-                    <View style={styles.bottomButtons}>
-                        <TouchableOpacity style={styles.leaveButton} onPress={handleLeaveFridge}>
-                            <Text style={styles.leaveButtonText}>
+                    <Text style={styles.sectionHeader}>Account Actions</Text>
+                    <View style={styles.card}>
+                        <TouchableOpacity style={styles.row} onPress={handleLogout}>
+                            <Text style={styles.rowLabel}>Log Out</Text>
+                            <ChevronRightIcon />
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity style={styles.row} onPress={handleLeaveFridge}>
+                            <Text style={[styles.rowLabel, { color: '#BC4B41' }]}>
                                 {pair?.memberUids.length === 1 ? "Delete Fridge" : "Leave Fridge"}
                             </Text>
+                            <ChevronRightIcon />
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                            <Text style={styles.logoutButtonText}>Log Out</Text>
+
+                        <TouchableOpacity style={[styles.row, styles.noBorder]} onPress={handleDeleteAccount} disabled={isDeletingAccount}>
+                            <Text style={[styles.rowLabel, { color: '#BC4B41', fontFamily: 'Inter-Bold' }]}>
+                                {isDeletingAccount ? "Deleting..." : "Delete Account"}
+                            </Text>
+                            {isDeletingAccount ? (
+                                <ActivityIndicator size="small" color="#BC4B41" />
+                            ) : (
+                                <ChevronRightIcon />
+                            )}
                         </TouchableOpacity>
                     </View>
                 </ScrollView>
+
+                <ReauthModal
+                    visible={isReauthVisible}
+                    onClose={() => setIsReauthVisible(false)}
+                    onSuccess={handleReauthSuccess}
+                    providerId={user?.providerData?.[0]?.providerId || 'password'}
+                    email={user?.email || undefined}
+                />
 
                 <LocationPickerModal
                     visible={locationPickerType !== null}
