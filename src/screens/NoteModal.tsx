@@ -170,15 +170,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                         // Match aspect ratio of NotepadSVG notes area (800:480)
                         const canvasHeight = canvasWidth * (480 / 800);
                         return (
-                            <View style={[styles.canvasContainer, { height: canvasHeight }]}>
-                                <NoteCanvas
-                                    width={canvasWidth}
-                                    height={canvasHeight}
-                                    elements={elements}
-                                    currentTool={currentTool}
-                                    onElementsChange={setElements}
-                                    selectedMagnetType={selectedMagnetType}
-                                />
+                            <>
                                 {/* Tool Hint */}
                                 <View style={styles.hintContainer} pointerEvents="none">
                                     <Text style={styles.hintText}>
@@ -188,7 +180,17 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                                         {currentTool === 'eraser' && "Tap items to erase them"}
                                     </Text>
                                 </View>
-                            </View>
+                                <View style={[styles.canvasContainer, { height: canvasHeight }]}>
+                                    <NoteCanvas
+                                        width={canvasWidth}
+                                        height={canvasHeight}
+                                        elements={elements}
+                                        currentTool={currentTool}
+                                        onElementsChange={setElements}
+                                        selectedMagnetType={selectedMagnetType}
+                                    />
+                                </View>
+                            </>
                         );
                     })()}
 
@@ -286,21 +288,15 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
     hintContainer: {
-        position: 'absolute',
-        top: 10,
-        left: 0,
-        right: 0,
+        marginBottom: 8,
         alignItems: 'center',
     },
     hintText: {
-        fontSize: 12,
+        fontSize: 13,
         color: '#6B4B3E',
-        opacity: 0.6,
-        fontFamily: 'Inter-SemiBold',
-        backgroundColor: 'rgba(255,255,255,0.8)',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 10,
+        opacity: 0.7,
+        fontFamily: 'Inter-Medium',
+        textAlign: 'center',
     },
     footer: {
         flexDirection: 'row',

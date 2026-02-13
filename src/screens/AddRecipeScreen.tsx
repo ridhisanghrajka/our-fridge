@@ -159,15 +159,22 @@ export const AddRecipeScreen: React.FC = () => {
                 await uploadBytes(storageRef, blob);
                 imageUrl = await getDownloadURL(storageRef);
             } else if (image) {
-                // If it's already a web URL, just use it
                 imageUrl = image;
             }
 
             await addRecipe(recipeName, validIngredients, notes, imageUrl, imagePath);
             navigation.goBack();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error adding recipe:', error);
-            Alert.alert('Error', 'Failed to add recipe. Please try again.');
+            
+            let userFriendlyMessage = error.message || 'Unknown error';
+            if (error.code === 'storage/unauthorized') {
+                userFriendlyMessage = 'You do not have permission to upload images. Please check your Firebase Storage rules.';
+            } else if (error.code === 'storage/retry-limit-exceeded') {
+                userFriendlyMessage = 'Upload timed out. Please check your internet connection.';
+            }
+            
+            Alert.alert('Error', `Failed to add recipe: ${userFriendlyMessage}`);
         } finally {
             setUploading(false);
         }

@@ -112,9 +112,9 @@ export const FridgeScreen: React.FC = () => {
 
     // Note area layout
     // 1030/1600 = 0.64375 -> Adjusted to 0.66 to give more space for "Show more"
-    const noteTop = notepadTop + notepadHeight * 0.66;
+    const noteTop = notepadTop + notepadHeight * 0.645;
     // 480/1600 = 0.3 -> Adjusted slightly to maintain bottom position
-    const noteHeight = notepadHeight * 0.28375;
+    const noteHeight = notepadHeight * 0.32;
     const noteLeft = notepadLeft + notepadWidth * 0.10; // Centered on wider paper
     const noteWidth = notepadWidth * 0.80; // 800/1000
 
@@ -421,6 +421,7 @@ const styles = StyleSheet.create({
         fontFamily: 'Inter-Regular',
         fontStyle: 'italic',
         lineHeight: 20,
+        textAlign: 'center',
     },
     emptyStateContainer: {
         flex: 1,

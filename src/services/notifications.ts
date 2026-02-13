@@ -12,14 +12,14 @@ const WIDGET_PUSH_TASK_NAME = 'OUR_FRIDGE_WIDGET_PUSH_TASK';
 // Set up notification handler
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
-    const data: any = notification?.request?.content?.data;
-    const isWidgetUpdate = data?.type === 'WIDGET_UPDATE';
+    const title = notification?.request?.content?.title;
+    const hasTitle = !!title && title.length > 0;
 
     return {
-      // Never alert/sound for widget-only silent refreshes
-      shouldShowBanner: !isWidgetUpdate,
-      shouldShowList: !isWidgetUpdate,
-      shouldPlaySound: !isWidgetUpdate,
+      // Show banner/sound if there is a title, regardless of widget update flag
+      shouldShowBanner: hasTitle,
+      shouldShowList: hasTitle,
+      shouldPlaySound: hasTitle,
       shouldSetBadge: false,
     };
   },

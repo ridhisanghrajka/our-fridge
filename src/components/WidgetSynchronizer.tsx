@@ -12,15 +12,16 @@ import { syncDataToWidget } from '../services/widgetSync';
  */
 export const WidgetSynchronizer: React.FC = () => {
   const { pairId, userName, pair, user, isPremium } = usePairing();
-  const { items } = useGroceryItems(pairId, userName);
-  const { note } = useSharedNote(pairId, userName);
+  const { items } = useGroceryItems(pairId, user);
+  const { note } = useSharedNote(pairId, user);
   const appState = useRef(AppState.currentState);
 
   const fridgeName = pair?.fridgeName || (userName ? `${userName}'s Fridge` : 'Our Fridge');
 
   // Sync whenever data changes
   useEffect(() => {
-    if (pairId && items.length >= 0) {
+    // Only sync if we have a valid pairId and items have loaded
+    if (pairId && items && items.length >= 0) {
       syncDataToWidget(items, note, fridgeName, isPremium, 'WidgetSynchronizer:dataChange');
     }
   }, [items, note, fridgeName, pairId, isPremium]);
@@ -28,11 +29,13 @@ export const WidgetSynchronizer: React.FC = () => {
   // Ensure fresh sync when app goes to background
   useEffect(() => {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      // Transitioning from active to background/inactive
       if (
         appState.current === 'active' &&
         nextAppState.match(/inactive|background/)
       ) {
-        if (pairId && items.length >= 0) {
+        if (pairId && items && items.length >= 0) {
+          // Trigger an immediate sync (0ms debounce) for backgrounding
           syncDataToWidget(items, note, fridgeName, isPremium, 'WidgetSynchronizer:appBackground');
         }
       }
@@ -44,7 +47,7 @@ export const WidgetSynchronizer: React.FC = () => {
     return () => {
       subscription.remove();
     };
-  }, [items, note, fridgeName, pairId]);
+  }, [items, note, fridgeName, pairId, isPremium]);
 
   return null;
 };
