@@ -21,16 +21,12 @@
       <key>NSExtensionAttributes</key>
       <dict>
         <key>NSExtensionActivationRule</key>
-        <string>SUBQUERY (
-    extensionItems,
-    $extensionItem,
-    SUBQUERY (
-        $extensionItem.attachments,
-        $attachment,
-        ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.url" ||
-        ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.plain-text"
-    ).@count >= 1
-).@count >= 1</string>
+        <dict>
+          <key>NSExtensionActivationSupportsWebURLWithMaxCount</key>
+          <integer>1</integer>
+          <key>NSExtensionActivationSupportsWebPageWithMaxCount</key>
+          <integer>1</integer>
+        </dict>
         <key>NSExtensionJavaScriptPreprocessingFile</key>
         <string>ShareExtensionPreprocessor</string>
       </dict>
@@ -40,10 +36,6 @@
       <string>com.apple.share-services</string>
     </dict>
     <key>AppGroupIdentifier</key>
-    <string>group.ridhisanghrajka.ourfridge</string>
-    <key>CFBundleVersion</key>
-    <string>$(CURRENT_PROJECT_VERSION)</string>
-    <key>CFBundleShortVersionString</key>
-    <string>$(MARKETING_VERSION)</string>
+    <string>group.com.ridhisanghrajka.ourfridge</string>
   </dict>
 </plist>

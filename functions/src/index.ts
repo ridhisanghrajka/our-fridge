@@ -22,7 +22,7 @@ async function sendPushNotification(token: string, title: string, body: string, 
   try {
     const payload: any = {
       to: token,
-      data: data,
+      data: data || {},
     };
 
     if (!isSilent) {
@@ -30,9 +30,9 @@ async function sendPushNotification(token: string, title: string, body: string, 
       payload.body = body;
       payload.sound = "default";
     } else {
-      // Expo Push API field for iOS "content-available": 1 (silent/background)
-      // See: https://docs.expo.dev/push-notifications/sending-notifications/
-      payload.contentAvailable = true;
+      // Use _contentAvailable for Headless Background Notifications as per Expo docs
+      payload._contentAvailable = true;
+      payload.priority = "normal";
     }
 
     const response = await axios.post(EXPO_PUSH_URL, payload);

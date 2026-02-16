@@ -120,6 +120,7 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: 
     const [uploading, setUploading] = useState(false);
     const [activeAnimations, setActiveAnimations] = useState<{ id: string; x: number; y: number }[]>([]);
     const [isBulkAddingVisually, setIsBulkAddingVisually] = useState(false);
+    const [isBulkOperating, setIsBulkOperating] = useState(false);
     
     const checkboxRefs = useRef<Map<string, any>>(new Map());
 
@@ -353,14 +354,18 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: 
     const allAdded = isBulkAddingVisually || (ingredients.length > 0 && ingredients.every(ing => isIngredientInList(ing.name)));
 
     const handleBulkAction = async () => {
-        if (isEditing) return;
+        if (isEditing || isBulkOperating) return;
+
+        setIsBulkOperating(true);
 
         if (allAdded) {
             setIsBulkAddingVisually(false);
             const itemsToDelete = groceryItems.filter(item => item.recipeId === initialRecipe.id && !item.isDone);
-            await Promise.all(itemsToDelete.map(item => deleteGroceryItem(item.id)));
-            
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            if (itemsToDelete.length > 0) {
+                await Promise.all(itemsToDelete.map(item => deleteGroceryItem(item.id)));
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            }
+            setIsBulkOperating(false);
         } else {
             // Set visual state IMMEDIATELY on click for instant feedback
             setIsBulkAddingVisually(true);
@@ -385,11 +390,19 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: 
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             }, 1800);
 
-            for (const ing of ingredients) {
+            const addPromises = ingredients.map(ing => {
                 if (!isIngredientInList(ing.name)) {
-                    await addItem(ing.name, undefined, ing.quantity, ing.imageUrl, ing.imagePath, initialRecipe.id);
+                    return addItem(ing.name, undefined, ing.quantity, ing.imageUrl, ing.imagePath, initialRecipe.id);
                 }
-            }
+                return Promise.resolve();
+            });
+
+            await Promise.all(addPromises);
+            
+            // Wait for Firestore to sync back before allowing another action
+            setTimeout(() => {
+                setIsBulkOperating(false);
+            }, 1000);
         }
     };
 
@@ -582,13 +595,18 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: 
                             {/* Bulk Action Text */}
                             {!isEditing && ingredients.length > 0 && (
                                 <TouchableOpacity 
-                                    style={styles.bulkActionButton} 
+                                    style={[styles.bulkActionButton, isBulkOperating && { opacity: 0.7 }]} 
                                     onPress={handleBulkAction}
+                                    disabled={isBulkOperating}
                                     activeOpacity={0.7}
                                 >
-                                    <Text style={[styles.bulkActionText, allAdded && styles.bulkActionTextRemove]}>
-                                        {allAdded ? 'Remove all from list' : 'Add all ingredients to the list'}
-                                    </Text>
+                                    {isBulkOperating ? (
+                                        <ActivityIndicator size="small" color="#6B4B3E" />
+                                    ) : (
+                                        <Text style={[styles.bulkActionText, allAdded && styles.bulkActionTextRemove]}>
+                                            {allAdded ? 'Remove all from list' : 'Add all ingredients to the list'}
+                                        </Text>
+                                    )}
                                 </TouchableOpacity>
                             )}
                         </View>

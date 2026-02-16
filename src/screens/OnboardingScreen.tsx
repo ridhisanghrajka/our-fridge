@@ -312,7 +312,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onFinish }) 
             await sendPasswordReset(email.trim());
             Alert.alert(
                 'Reset Email Sent', 
-                'If an account exists for this email, you will receive a password reset link shortly.'
+                'If an account exists for this email, you will receive a password reset link shortly. Be sure to check your spam or junk folder if you don\'t see it.'
             );
         } catch (err: any) {
             Alert.alert('Error', err.message || 'Failed to send reset email');

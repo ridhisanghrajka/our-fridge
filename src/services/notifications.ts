@@ -89,6 +89,7 @@ Notifications.addNotificationReceivedListener(async (notification) => {
  */
 TaskManager.defineTask(WIDGET_PUSH_TASK_NAME, async ({ data, error }: any) => {
   if (error) {
+    console.error("Background task error:", error);
     return;
   }
 
@@ -97,6 +98,8 @@ TaskManager.defineTask(WIDGET_PUSH_TASK_NAME, async ({ data, error }: any) => {
   const notifData: any = notification?.request?.content?.data ?? notification?.data;
 
   if (notifData?.type === 'WIDGET_UPDATE') {
+    // We MUST await this to ensure the task finishes before the OS kills the process.
+    // Silent pushes only give the app a few seconds of background time.
     await syncWidgetFromStoredSession();
   }
 });

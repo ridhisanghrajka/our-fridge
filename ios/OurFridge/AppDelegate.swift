@@ -52,6 +52,15 @@ public class AppDelegate: ExpoAppDelegate {
     return super.application(application, continue: userActivity, restorationHandler: restorationHandler) || result
   }
 
+  // Required for background notifications / silent pushes to wake up the app
+  public override func application(
+    _ application: UIApplication,
+    didReceiveRemoteNotification userInfo: [AnyHashable : Any],
+    fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+  ) {
+    super.application(application, didReceiveRemoteNotification: userInfo, fetchCompletionHandler: completionHandler)
+  }
+
 }
 
 class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
