@@ -2,7 +2,7 @@
   "expo": {
     "name": "Our Fridge",
     "slug": "OurFridge",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "scheme": "ourfridge",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.ridhisanghrajka.ourfridge",
-      "buildNumber": "13",
+      "buildNumber": "14",
       "infoPlist": {
         "NSCameraUsageDescription": "We use your camera to let you take photos for your profile, grocery list items, or shared recipes.",
         "NSPhotoLibraryUsageDescription": "We use your photo library so you can upload images for your profile, grocery list items, or shared recipes.",
