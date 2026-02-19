@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
 import LottieView from 'lottie-react-native';
 import { useShareStore } from '../services/shareStore';
+import { recordJoyMoment } from '../services/reviewService';
 
 export const ImportRecipeScreen: React.FC = () => {
     const navigation = useNavigation<any>();
@@ -73,6 +74,9 @@ export const ImportRecipeScreen: React.FC = () => {
 
             const data = await response.json();
             
+            // Joy Moment: Successful recipe import!
+            recordJoyMoment();
+
             // Helper to decode HTML entities and clean up strings
             const cleanString = (str: any) => {
                 if (str === null || str === undefined) return '';

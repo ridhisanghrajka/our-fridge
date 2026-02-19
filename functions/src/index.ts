@@ -30,9 +30,10 @@ async function sendPushNotification(token: string, title: string, body: string, 
       payload.body = body;
       payload.sound = "default";
     } else {
-      // Use _contentAvailable for Headless Background Notifications as per Expo docs
+      // Use _contentAvailable for Headless Background Notifications as per Expo docs.
+      // We use priority: high to ensure iOS grants the background wake (waking: 1).
       payload._contentAvailable = true;
-      payload.priority = "normal";
+      payload.priority = "high";
     }
 
     const response = await axios.post(EXPO_PUSH_URL, payload);

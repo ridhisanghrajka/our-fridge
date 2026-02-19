@@ -27,6 +27,7 @@ import {
     stopGeofencing
 } from '../services/locationService';
 import { restorePurchases, syncPremiumStatusToFirebase } from '../services/billing';
+import { requestManualReview } from '../services/reviewService';
 import * as Location from 'expo-location';
 import { AppState, AppStateStatus } from 'react-native';
 
@@ -529,7 +530,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
                     {/* Support Section */}
                     <Text style={styles.sectionHeader}>Support</Text>
                     <View style={styles.card}>
-                        <TouchableOpacity style={styles.row} onPress={() => openLink('https://apps.apple.com/app/idYOUR_APP_ID')}>
+                        <TouchableOpacity style={styles.row} onPress={requestManualReview}>
                             <Text style={styles.rowLabel}>Rate our fridge</Text>
                             <ExternalLinkIcon />
                         </TouchableOpacity>

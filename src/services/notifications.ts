@@ -35,9 +35,13 @@ async function syncWidgetFromStoredSession(): Promise<void> {
   const pairId = await getStoredPairId();
   const userName = await getStoredUserName();
 
-  if (!pairId) return;
+  if (!pairId) {
+    console.log("⚠️ [Background] No pairId found, skipping sync");
+    return;
+  }
 
   try {
+    console.log("📱 [Background] Fetching latest data from Firestore...");
     // 1. Fetch latest grocery items
     const itemsRef = collection(db, 'groceryItems');
     const q = query(itemsRef, where('pairId', '==', pairId));
@@ -66,10 +70,13 @@ async function syncWidgetFromStoredSession(): Promise<void> {
       ? pairSnap.data().fridgeName
       : (userName ? `${userName}'s Fridge` : 'Our Fridge');
 
+    console.log(`✅ [Background] Firestore data fetched (${items.length} items)`);
+
     // 4. Sync to widget
     await syncDataToWidget(items, note, fridgeName, isPremium, 'PushSync:storedSession');
+    console.log("🚀 [Background] Widget refresh command sent to system");
   } catch (error) {
-    // swallow
+    console.error("❌ [Background] Error during widget sync:", error);
   }
 }
 
@@ -89,13 +96,27 @@ Notifications.addNotificationReceivedListener(async (notification) => {
  */
 TaskManager.defineTask(WIDGET_PUSH_TASK_NAME, async ({ data, error }: any) => {
   if (error) {
-    console.error("Background task error:", error);
+    console.error("❌ [Background] TaskManager error:", error);
     return;
   }
 
-  // expo-notifications passes different shapes depending on SDK; handle both defensively.
-  const notification = data?.notification ?? data;
-  const notifData: any = notification?.request?.content?.data ?? notification?.data;
+  // expo-notifications passes different shapes depending on SDK and background/foreground state.
+  // We handle all documented and observed shapes to ensure type: 'WIDGET_UPDATE' is found.
+  let notifData: any = 
+    data?.notification?.request?.content?.data ?? 
+    data?.notification?.data ?? 
+    data?.data?.body ?? // Matches raw JSON observed in logs: data.data.body.type
+    data?.data ?? 
+    data;
+
+  // Last-resort fallback: Parse the dataString if it exists (observed in some Expo environments)
+  if (!notifData?.type && data?.data?.dataString) {
+    try {
+      notifData = JSON.parse(data.data.dataString);
+    } catch (e) {
+      // ignore parsing errors in fallback
+    }
+  }
 
   if (notifData?.type === 'WIDGET_UPDATE') {
     // We MUST await this to ensure the task finishes before the OS kills the process.
@@ -103,6 +124,10 @@ TaskManager.defineTask(WIDGET_PUSH_TASK_NAME, async ({ data, error }: any) => {
     await syncWidgetFromStoredSession();
   }
 });
+
+// Ensure task is registered immediately on app start so it can handle silent pushes
+// even if the user hasn't registered for tokens yet (fresh install fix).
+ensureWidgetPushTaskRegistered();
 
 async function ensureWidgetPushTaskRegistered(): Promise<void> {
   try {

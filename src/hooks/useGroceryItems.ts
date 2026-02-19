@@ -7,6 +7,7 @@ import { GroceryItem } from '../types/GroceryItem';
 import { User } from '../types/User';
 import { upsertMemoryItem, deleteMemoryItem } from '../services/groceryMemory';
 import { logActivity } from '../services/activity';
+import { recordJoyMoment } from '../services/reviewService';
 
 const CACHE_KEY_PREFIX = 'grocery_items_';
 
@@ -158,11 +159,21 @@ export const useGroceryItems = (pairId: string | null, user: User | null) => {
 
     const toggleItem = async (itemId: string, currentStatus: boolean) => {
         const itemRef = doc(db, 'groceryItems', itemId);
+        const newStatus = !currentStatus;
+        
         await updateDoc(itemRef, {
-            isDone: !currentStatus,
+            isDone: newStatus,
             updatedAt: Timestamp.now(),
             ...(user?.uid ? { updatedByUid: user.uid } : {}),
         });
+
+        // Joy Moment: If an item was just marked as done, check if all items are now done
+        if (newStatus) {
+            const activeItems = items.filter(i => !i.isDone && i.id !== itemId);
+            if (activeItems.length === 0) {
+                recordJoyMoment();
+            }
+        }
     };
 
     const deleteItem = async (itemId: string) => {

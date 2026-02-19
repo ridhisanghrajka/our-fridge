@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.ridhisanghrajka.ourfridge",
-      "buildNumber": "12",
+      "buildNumber": "13",
       "infoPlist": {
         "NSCameraUsageDescription": "We use your camera to let you take photos for your profile, grocery list items, or shared recipes.",
         "NSPhotoLibraryUsageDescription": "We use your photo library so you can upload images for your profile, grocery list items, or shared recipes.",
