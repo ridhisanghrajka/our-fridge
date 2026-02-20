@@ -110,7 +110,7 @@ interface RecipeDetailScreenProps {
 export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: initialRecipe, onClose }) => {
     const { pairId, user } = usePairing();
     const { deleteRecipe, updateRecipe, recipes } = useRecipes(pairId, user);
-    const { addItem, items: groceryItems, deleteItem: deleteGroceryItem } = useGroceryItems(pairId, user);
+    const { addItem, items: groceryItems, deleteItem: deleteGroceryItem, bulkAddItems, bulkDeleteItems } = useGroceryItems(pairId, user);
     
     const [isEditing, setIsEditing] = useState(false);
     const [recipeName, setRecipeName] = useState(initialRecipe.name);
@@ -362,7 +362,7 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: 
             setIsBulkAddingVisually(false);
             const itemsToDelete = groceryItems.filter(item => item.recipeId === initialRecipe.id && !item.isDone);
             if (itemsToDelete.length > 0) {
-                await Promise.all(itemsToDelete.map(item => deleteGroceryItem(item.id)));
+                await bulkDeleteItems(itemsToDelete.map(item => item.id), initialRecipe.name);
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             }
             setIsBulkOperating(false);
@@ -390,14 +390,19 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: 
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             }, 1800);
 
-            const addPromises = ingredients.map(ing => {
-                if (!isIngredientInList(ing.name)) {
-                    return addItem(ing.name, undefined, ing.quantity, ing.imageUrl, ing.imagePath, initialRecipe.id);
-                }
-                return Promise.resolve();
-            });
+            const itemsToAdd = ingredients
+                .filter(ing => !isIngredientInList(ing.name))
+                .map(ing => ({
+                    name: ing.name,
+                    quantity: ing.quantity,
+                    imageUrl: ing.imageUrl,
+                    imagePath: ing.imagePath,
+                    recipeId: initialRecipe.id
+                }));
 
-            await Promise.all(addPromises);
+            if (itemsToAdd.length > 0) {
+                await bulkAddItems(itemsToAdd, initialRecipe.name);
+            }
             
             // Wait for Firestore to sync back before allowing another action
             setTimeout(() => {

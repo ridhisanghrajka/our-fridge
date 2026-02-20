@@ -9,7 +9,8 @@ struct Provider: TimelineProvider {
             items: ["Milk", "Eggs", "Bread"],
             noteSnippet: "Don't forget the milk!",
             noteElements: [],
-            updatedAt: Date().timeIntervalSince1970
+            updatedAt: Date().timeIntervalSince1970,
+            isLocked: false
         ))
     }
 
@@ -20,8 +21,9 @@ struct Provider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
         let entry = readWidgetData()
-        // Refresh every 15 minutes if not triggered by app
-        let nextUpdate = Calendar.current.date(byAdding: .minute, value: 15, to: Date())!
+        // Background fallback refresh every 60 minutes. App-triggered reloads
+        // handle the real-time case, so this only matters when the app is closed.
+        let nextUpdate = Calendar.current.date(byAdding: .minute, value: 60, to: Date())!
         let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
         completion(timeline)
     }

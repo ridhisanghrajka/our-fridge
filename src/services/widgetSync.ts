@@ -37,8 +37,13 @@ const prepareWidgetSnapshot = (
     activeItems = ["Subscription required"];
     noteSnippet = "Subscribe to see your shared list and notes on your home screen.";
   } else {
-    activeItems = items
+    activeItems = [...items]
       .filter(item => !item.isDone)
+      .sort((a, b) => {
+        const timeA = a.createdAt instanceof Date ? a.createdAt.getTime() : (a.createdAt as any)?.seconds * 1000 || 0;
+        const timeB = b.createdAt instanceof Date ? b.createdAt.getTime() : (b.createdAt as any)?.seconds * 1000 || 0;
+        return timeB - timeA;
+      })
       .slice(0, 5)
       .map(item => {
         const emoji = item.emoji ? `${item.emoji} ` : "";

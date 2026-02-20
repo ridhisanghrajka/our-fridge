@@ -1,5 +1,6 @@
 import firebase from 'firebase/compat/app';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { NativeModules } from 'react-native';
 import { doc, getDoc, setDoc, updateDoc, deleteDoc, arrayUnion, arrayRemove, Timestamp } from 'firebase/firestore';
 import { 
     signInWithEmailAndPassword, 
@@ -74,6 +75,12 @@ export const signInWithEmail = async (email: string, password: string): Promise<
         // This shouldn't happen with email sign in, but let's be safe
         return await createUser(firebaseUser.uid);
     }
+
+    // Mirror pairId to native storage for background tasks
+    if (userData.fridgeId) {
+        NativeModules.WidgetBridge?.setSharedPairId(userData.fridgeId);
+    }
+
     return userData;
 };
 
@@ -112,6 +119,12 @@ export const signInWithAppleCredential = async (identityToken: string, nonce: st
         await updateUser(firebaseUser.uid, { email });
         userData.email = email;
     }
+
+    // Mirror pairId to native storage for background tasks
+    if (userData.fridgeId) {
+        NativeModules.WidgetBridge?.setSharedPairId(userData.fridgeId);
+    }
+
     return userData;
 };
 
@@ -227,6 +240,9 @@ export const createPair = async (code: string, userId: string, userName: string,
 
     // Save to local storage
     await AsyncStorage.setItem(PAIR_ID_KEY, code);
+
+    // Mirror to native storage for background tasks
+    NativeModules.WidgetBridge?.setSharedPairId(code);
 };
 
 /**
@@ -260,6 +276,9 @@ export const joinPair = async (code: string, userId: string, userName: string): 
 
     // Save to local storage
     await AsyncStorage.setItem(PAIR_ID_KEY, code);
+
+    // Mirror to native storage for background tasks
+    NativeModules.WidgetBridge?.setSharedPairId(code);
 };
 
 /**
@@ -309,6 +328,9 @@ export const leaveFridge = async (code: string, userId: string): Promise<void> =
 
     // Clear local storage
     await AsyncStorage.removeItem(PAIR_ID_KEY);
+
+    // Clear native storage
+    NativeModules.WidgetBridge?.setSharedPairId("");
 };
 
 /**
@@ -349,4 +371,7 @@ export const getStoredUserName = async (): Promise<string | null> => {
 export const clearPairing = async (): Promise<void> => {
     await AsyncStorage.removeItem(PAIR_ID_KEY);
     await AsyncStorage.removeItem(USER_NAME_KEY);
+    
+    // Clear native storage
+    NativeModules.WidgetBridge?.setSharedPairId("");
 };

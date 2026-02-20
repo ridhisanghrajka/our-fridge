@@ -32,7 +32,26 @@ Notifications.setNotificationHandler({
  */
 async function syncWidgetFromStoredSession(): Promise<void> {
   const { getStoredPairId, getStoredUserName } = require('./pairing');
-  const pairId = await getStoredPairId();
+  const { WidgetBridge } = NativeModules;
+  
+  // 1. Try Native Shared Storage first (Most reliable in background/locked state)
+  let pairId: string | null = null;
+  try {
+    if (typeof WidgetBridge?.getSharedPairId === 'function') {
+      pairId = await WidgetBridge.getSharedPairId();
+      if (pairId) {
+        console.log("📱 [Background] Using native shared pairId:", pairId);
+      }
+    }
+  } catch (e) {
+    console.error("❌ [Background] Error reading native pairId:", e);
+  }
+
+  // 2. Fallback to AsyncStorage
+  if (!pairId) {
+    pairId = await getStoredPairId();
+  }
+  
   const userName = await getStoredUserName();
 
   if (!pairId) {

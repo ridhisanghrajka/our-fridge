@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus, NativeModules } from 'react-native';
 import { useGroceryItems } from '../hooks/useGroceryItems';
 import { useSharedNote } from '../hooks/useSharedNote';
 import { usePairing } from '../hooks/usePairing';
@@ -17,6 +17,13 @@ export const WidgetSynchronizer: React.FC = () => {
   const appState = useRef(AppState.currentState);
 
   const fridgeName = pair?.fridgeName || (userName ? `${userName}'s Fridge` : 'Our Fridge');
+
+  // Mirror pairId to native storage for background tasks (App Group)
+  useEffect(() => {
+    if (pairId && NativeModules.WidgetBridge?.setSharedPairId) {
+      NativeModules.WidgetBridge.setSharedPairId(pairId);
+    }
+  }, [pairId]);
 
   // Sync whenever data changes
   useEffect(() => {

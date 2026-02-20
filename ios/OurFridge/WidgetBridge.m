@@ -4,6 +4,8 @@
 
 RCT_EXTERN_METHOD(reloadWidget)
 RCT_EXTERN_METHOD(setWidgetData:(NSString *)json)
+RCT_EXTERN_METHOD(setSharedPairId:(NSString *)pairId)
+RCT_EXTERN_METHOD(getSharedPairId:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 RCT_EXTERN_METHOD(exitApp)
 
 @end

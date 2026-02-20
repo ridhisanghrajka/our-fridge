@@ -27,6 +27,7 @@
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 		F11748472D0722820044C1D9 /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748452D0722820044C1D9 /* WidgetBridge.swift */; };
 		F11748482D0722820044C1D9 /* WidgetBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = F11748462D0722820044C1D9 /* WidgetBridge.m */; };
+		758A31672F1B367A00656DF7 /* WidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758A31682F1B367A00656DF7 /* WidgetData.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -100,6 +101,7 @@
 		F11748442D0722820044C1D9 /* OurFridge-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "OurFridge-Bridging-Header.h"; path = "OurFridge/OurFridge-Bridging-Header.h"; sourceTree = "<group>"; };
 		F11748452D0722820044C1D9 /* WidgetBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WidgetBridge.swift; path = OurFridge/WidgetBridge.swift; sourceTree = "<group>"; };
 		F11748462D0722820044C1D9 /* WidgetBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = WidgetBridge.m; path = OurFridge/WidgetBridge.m; sourceTree = "<group>"; };
+		758A31682F1B367A00656DF7 /* WidgetData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FridgeWidget/WidgetData.swift; sourceTree = "<group>"; };
 		F281F79808C860C9E407FB4B /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-OurFridge/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -511,6 +513,7 @@
 				97218D1C7E0E8395BBA3F098 /* ExpoModulesProvider.swift in Sources */,
 				F11748472D0722820044C1D9 /* WidgetBridge.swift in Sources */,
 				F11748482D0722820044C1D9 /* WidgetBridge.m in Sources */,
+				758A31672F1B367A00656DF7 /* WidgetData.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

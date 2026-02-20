@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, Timestamp, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, Timestamp, orderBy, writeBatch } from 'firebase/firestore';
 import { ref, deleteObject, uploadBytes, getDownloadURL } from 'firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db, storage } from '../services/firebase';
@@ -181,6 +181,57 @@ export const useGroceryItems = (pairId: string | null, user: User | null) => {
         await deleteDoc(itemRef);
     };
 
+    const bulkAddItems = async (itemsToAdd: any[], recipeName?: string) => {
+        if (!pairId) return;
+        const batch = writeBatch(db);
+        
+        itemsToAdd.forEach(item => {
+            const newDocRef = doc(collection(db, 'groceryItems'));
+            batch.set(newDocRef, {
+                ...item,
+                pairId,
+                userId: user?.uid || '',
+                isDone: false,
+                createdBy: userName || 'User',
+                createdAt: Timestamp.now(),
+                updatedAt: Timestamp.now(),
+            });
+        });
+
+        await batch.commit();
+
+        // Log activity once for the whole batch
+        if (user && pairId) {
+            const logMessage = recipeName 
+                ? `added ${itemsToAdd.length} items from ${recipeName}`
+                : `added ${itemsToAdd.length} items`;
+            logActivity(pairId, user.uid, userName, user.photoURL, 'ADD', logMessage).catch(err =>
+                console.error("Error logging bulk add activity:", err)
+            );
+        }
+    };
+
+    const bulkDeleteItems = async (itemIds: string[], recipeName?: string) => {
+        if (!pairId) return;
+        const batch = writeBatch(db);
+        
+        itemIds.forEach(id => {
+            batch.delete(doc(db, 'groceryItems', id));
+        });
+
+        await batch.commit();
+
+        // Log activity once for the whole batch
+        if (user && pairId) {
+            const logMessage = recipeName 
+                ? `removed ${itemIds.length} items from ${recipeName}`
+                : `removed ${itemIds.length} items`;
+            logActivity(pairId, user.uid, userName, user.photoURL, 'REMOVE', logMessage).catch(err =>
+                console.error("Error logging bulk delete activity:", err)
+            );
+        }
+    };
+
     const updateItem = async (itemId: string, updates: Partial<Pick<GroceryItem, 'name' | 'quantity' | 'imageUrl' | 'imagePath' | 'emoji'>>) => {
         const itemRef = doc(db, 'groceryItems', itemId);
         
@@ -239,6 +290,8 @@ export const useGroceryItems = (pairId: string | null, user: User | null) => {
         items,
         loading,
         addItem,
+        bulkAddItems,
+        bulkDeleteItems,
         toggleItem,
         deleteItem,
         updateItem,
