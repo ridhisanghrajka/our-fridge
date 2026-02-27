@@ -60,12 +60,15 @@ async function sendPushNotification(token: string, title: string, body: string, 
 
 /**
  * Trigger: When a grocery item is added
+ * Bulk adds (from recipes) are tagged with isBulkAdd and handled by sendBulkAddNotification instead.
  */
 export const onItemAdded = functions.firestore
   .document("groceryItems/{itemId}")
   .onCreate(async (snapshot) => {
     const itemData = snapshot.data();
     if (!itemData) return;
+
+    if (itemData.isBulkAdd) return;
 
     const { pairId, createdBy, name: itemName } = itemData;
     if (!pairId) return;
@@ -108,6 +111,14 @@ export const onItemAdded = functions.firestore
           "New fridge item!",
           `${createdBy} added ${itemName} to the list.`,
           { screen: "GroceryList", type: "WIDGET_UPDATE" }
+        );
+
+        await sendPushNotification(
+          userData.pushToken,
+          "",
+          "",
+          { type: "WIDGET_UPDATE" },
+          true
         );
 
         // Update lastNotifAt
@@ -206,6 +217,66 @@ export const onItemDeleted = functions.firestore
 
     await Promise.all(promises);
   });
+
+/**
+ * Callable: Single consolidated notification for bulk add (e.g. "Add All Ingredients")
+ */
+export const sendBulkAddNotification = functions.https.onCall(async (data, context) => {
+  const { pairId, addedBy, addedByUid, count, recipeName } = data;
+  if (!pairId || !count) return;
+
+  const usersRef = db.collection("pairs").doc(pairId).collection("users");
+  const usersSnapshot = await usersRef.get();
+
+  const now = admin.firestore.Timestamp.now();
+
+  const promises = usersSnapshot.docs.map(async (doc) => {
+    const userData = doc.data();
+
+    if (userData.userId === addedByUid || doc.id === addedByUid) return;
+    if (!userData.pushToken || !userData.prefs?.notifyFridgeUpdates) return;
+
+    const lastSeenAt = userData.lastSeenAt?.toMillis() || 0;
+    const lastNotifAt = userData.lastNotifAt?.fridgeUpdated?.toMillis() || 0;
+    const timeSinceSeen = now.toMillis() - lastSeenAt;
+    const timeSinceNotif = now.toMillis() - lastNotifAt;
+
+    if (timeSinceSeen > INACTIVITY_WINDOW_MS &&
+        timeSinceNotif > INACTIVITY_WINDOW_MS &&
+        timeSinceSeen > RECENT_ACTIVITY_WINDOW_MS) {
+      const body = recipeName
+        ? `${addedBy} added ${count} items from ${recipeName}.`
+        : `${addedBy} added ${count} items to the list.`;
+
+      await sendPushNotification(
+        userData.pushToken,
+        "New fridge items!",
+        body,
+        { screen: "GroceryList", type: "WIDGET_UPDATE" }
+      );
+
+      await sendPushNotification(
+        userData.pushToken,
+        "",
+        "",
+        { type: "WIDGET_UPDATE" },
+        true
+      );
+
+      await doc.ref.update({ "lastNotifAt.fridgeUpdated": now });
+    } else {
+      await sendPushNotification(
+        userData.pushToken,
+        "",
+        "",
+        { type: "WIDGET_UPDATE" },
+        true
+      );
+    }
+  });
+
+  await Promise.all(promises);
+});
 
 /**
  * Trigger: When a shared note is updated

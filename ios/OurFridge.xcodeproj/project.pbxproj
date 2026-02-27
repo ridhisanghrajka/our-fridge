@@ -15,6 +15,7 @@
 		6C759333F42C465DA188F5C8 /* ShareExtensionPreprocessor.js in Resources */ = {isa = PBXBuildFile; fileRef = C8845CE6ACC74126AC3E72C7 /* ShareExtensionPreprocessor.js */; };
 		758A31632F1B367A00656DF7 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 758A31622F1B367900656DF7 /* WidgetKit.framework */; };
 		758A31652F1B367A00656DF7 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 758A31642F1B367A00656DF7 /* SwiftUI.framework */; };
+		758A31672F1B367A00656DF7 /* FridgeWidget/WidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758A31682F1B367A00656DF7 /* FridgeWidget/WidgetData.swift */; };
 		758A31702F1B367A00656DF7 /* FridgeWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 758A31612F1B367900656DF7 /* FridgeWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		758A32D22F29BFCD00656DF7 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 758A32D12F29BFCD00656DF7 /* GoogleService-Info.plist */; };
 		758A32D32F29BFCD00656DF7 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 758A32D12F29BFCD00656DF7 /* GoogleService-Info.plist */; };
@@ -27,7 +28,6 @@
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 		F11748472D0722820044C1D9 /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748452D0722820044C1D9 /* WidgetBridge.swift */; };
 		F11748482D0722820044C1D9 /* WidgetBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = F11748462D0722820044C1D9 /* WidgetBridge.m */; };
-		758A31672F1B367A00656DF7 /* WidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758A31682F1B367A00656DF7 /* WidgetData.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -83,6 +83,7 @@
 		758A31612F1B367900656DF7 /* FridgeWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FridgeWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		758A31622F1B367900656DF7 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		758A31642F1B367A00656DF7 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		758A31682F1B367A00656DF7 /* FridgeWidget/WidgetData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FridgeWidget/WidgetData.swift; sourceTree = "<group>"; };
 		758A31762F1B3B4900656DF7 /* FridgeWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FridgeWidgetExtension.entitlements; sourceTree = "<group>"; };
 		758A32D12F29BFCD00656DF7 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		758A32D42F2C42F500656DF7 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
@@ -101,7 +102,6 @@
 		F11748442D0722820044C1D9 /* OurFridge-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "OurFridge-Bridging-Header.h"; path = "OurFridge/OurFridge-Bridging-Header.h"; sourceTree = "<group>"; };
 		F11748452D0722820044C1D9 /* WidgetBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WidgetBridge.swift; path = OurFridge/WidgetBridge.swift; sourceTree = "<group>"; };
 		F11748462D0722820044C1D9 /* WidgetBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = WidgetBridge.m; path = OurFridge/WidgetBridge.m; sourceTree = "<group>"; };
-		758A31682F1B367A00656DF7 /* WidgetData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FridgeWidget/WidgetData.swift; sourceTree = "<group>"; };
 		F281F79808C860C9E407FB4B /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-OurFridge/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -116,7 +116,18 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		758A31662F1B367A00656DF7 /* FridgeWidget */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (758A31742F1B367A00656DF7 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = FridgeWidget; sourceTree = "<group>"; };
+		758A31662F1B367A00656DF7 /* FridgeWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				758A31742F1B367A00656DF7 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = FridgeWidget;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -199,6 +210,14 @@
 			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
+		75E6134A2F4BE64A0059A046 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				758A31682F1B367A00656DF7 /* FridgeWidget/WidgetData.swift */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
 		7A35286B7E9A11FC0CDEAF00 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
@@ -227,6 +246,7 @@
 				7A35286B7E9A11FC0CDEAF00 /* Pods */,
 				7533E0176D9541E998A4E43E /* ExpoModulesProviders */,
 				0354BE429FBA433688571B3D /* ShareExtension */,
+				75E6134A2F4BE64A0059A046 /* Recovered References */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -513,7 +533,7 @@
 				97218D1C7E0E8395BBA3F098 /* ExpoModulesProvider.swift in Sources */,
 				F11748472D0722820044C1D9 /* WidgetBridge.swift in Sources */,
 				F11748482D0722820044C1D9 /* WidgetBridge.m in Sources */,
-				758A31672F1B367A00656DF7 /* WidgetData.swift in Sources */,
+				758A31672F1B367A00656DF7 /* FridgeWidget/WidgetData.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -555,7 +575,9 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = OurFridge/OurFridge.entitlements;
-				CURRENT_PROJECT_VERSION = 14;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 15;
 				DEVELOPMENT_TEAM = W9F5AGQ7QJ;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -576,7 +598,8 @@
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
 				PRODUCT_BUNDLE_IDENTIFIER = com.ridhisanghrajka.ourfridge;
-				PRODUCT_NAME = OurFridge;
+				PRODUCT_NAME = "OurFridge";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -584,7 +607,7 @@
 				SWIFT_OBJC_BRIDGING_HEADER = "OurFridge/OurFridge-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
@@ -596,7 +619,9 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = OurFridge/OurFridge.entitlements;
-				CURRENT_PROJECT_VERSION = 14;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 15;
 				DEVELOPMENT_TEAM = W9F5AGQ7QJ;
 				INFOPLIST_FILE = OurFridge/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
@@ -612,14 +637,15 @@
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
 				PRODUCT_BUNDLE_IDENTIFIER = com.ridhisanghrajka.ourfridge;
-				PRODUCT_NAME = OurFridge;
+				PRODUCT_NAME = "OurFridge";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_OBJC_BRIDGING_HEADER = "OurFridge/OurFridge-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
@@ -629,8 +655,9 @@
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 14;
+				CURRENT_PROJECT_VERSION = 15;
 				DEVELOPMENT_TEAM = W9F5AGQ7QJ;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "ShareExtension/ShareExtension-Info.plist";
@@ -643,6 +670,7 @@
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.ridhisanghrajka.ourfridge.share-extension";
 				PRODUCT_NAME = ShareExtension;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -650,7 +678,7 @@
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
@@ -669,8 +697,9 @@
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CODE_SIGN_ENTITLEMENTS = FridgeWidgetExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 14;
+				CURRENT_PROJECT_VERSION = 15;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = W9F5AGQ7QJ;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -692,6 +721,7 @@
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
 				PRODUCT_BUNDLE_IDENTIFIER = com.ridhisanghrajka.ourfridge.FridgeWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -704,7 +734,7 @@
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
@@ -723,9 +753,10 @@
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CODE_SIGN_ENTITLEMENTS = FridgeWidgetExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 14;
+				CURRENT_PROJECT_VERSION = 15;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = W9F5AGQ7QJ;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -746,6 +777,7 @@
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
 				PRODUCT_BUNDLE_IDENTIFIER = com.ridhisanghrajka.ourfridge.FridgeWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -757,7 +789,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
@@ -766,8 +798,9 @@
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 14;
+				CURRENT_PROJECT_VERSION = 15;
 				DEVELOPMENT_TEAM = W9F5AGQ7QJ;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
@@ -784,6 +817,7 @@
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.ridhisanghrajka.ourfridge.share-extension";
 				PRODUCT_NAME = ShareExtension;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -791,7 +825,7 @@
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};

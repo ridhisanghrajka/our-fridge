@@ -12,21 +12,23 @@ const PAIR_ID_KEY = '@OurFridge:pairId';
  * Define the background geofencing task
  */
 TaskManager.defineTask(GEOFENCING_TASK_NAME, async ({ data: { eventType, region }, error }: any) => {
+  console.log('[Geofence Task] Fired!', { eventType, region: region?.identifier, error: error || 'none' });
+
   if (error) {
-    console.error('Geofencing task error:', error);
+    console.error('[Geofence Task] Error:', error);
     return;
   }
 
   const pairId = await AsyncStorage.getItem(PAIR_ID_KEY);
+  console.log('[Geofence Task] pairId from AsyncStorage:', pairId ? pairId : 'NOT FOUND');
   if (!pairId) return;
 
-  // We only care about Enter for store and Exit for work
   const isStoreEnter = eventType === Location.GeofencingEventType.Enter && region.identifier === 'store';
   const isDepartureExit = eventType === Location.GeofencingEventType.Exit && region.identifier === 'departure';
+  console.log('[Geofence Task] isStoreEnter:', isStoreEnter, 'isDepartureExit:', isDepartureExit);
 
   if (isStoreEnter || isDepartureExit) {
     try {
-      // Check if there are active items in the grocery list
       const itemsRef = collection(db, 'groceryItems');
       const q = query(
         itemsRef,
@@ -36,9 +38,9 @@ TaskManager.defineTask(GEOFENCING_TASK_NAME, async ({ data: { eventType, region 
       );
       
       const querySnapshot = await getDocs(q);
+      console.log('[Geofence Task] Active items found:', !querySnapshot.empty);
       
       if (!querySnapshot.empty) {
-        // List is not empty, send notification
         const title = isStoreEnter ? "You're near the store! 🛒" : "Leaving your location? 🏠";
         const body = isStoreEnter 
           ? "There are items on the fridge list. Check before you go in!"
@@ -53,9 +55,10 @@ TaskManager.defineTask(GEOFENCING_TASK_NAME, async ({ data: { eventType, region 
           },
           trigger: null,
         });
+        console.log('[Geofence Task] Notification scheduled!');
       }
     } catch (err) {
-      console.error('Error in geofencing background task:', err);
+      console.error('[Geofence Task] Error in background task:', err);
     }
   }
 });
@@ -135,8 +138,11 @@ export const registerGeofences = async (
   }
 
   if (regions.length > 0) {
+    console.log('[Geofence] Registering', regions.length, 'region(s):', regions.map(r => `${r.identifier} (${r.latitude.toFixed(4)}, ${r.longitude.toFixed(4)}, r=${r.radius}m)`).join(', '));
     await Location.startGeofencingAsync(GEOFENCING_TASK_NAME, regions);
+    console.log('[Geofence] startGeofencingAsync succeeded');
   } else {
+    console.log('[Geofence] No regions to register, stopping geofencing');
     await stopGeofencing();
   }
 };

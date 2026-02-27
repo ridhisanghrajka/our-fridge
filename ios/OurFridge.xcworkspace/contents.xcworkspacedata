@@ -2,6 +2,9 @@
 <Workspace
    version = "1.0">
    <FileRef
+      location = "group:../../../Downloads/ColdStorage.gpx">
+   </FileRef>
+   <FileRef
       location = "group:OurFridge.xcodeproj">
    </FileRef>
    <FileRef

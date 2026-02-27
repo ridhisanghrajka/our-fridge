@@ -358,53 +358,52 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: 
 
         setIsBulkOperating(true);
 
-        if (allAdded) {
-            setIsBulkAddingVisually(false);
-            const itemsToDelete = groceryItems.filter(item => item.recipeId === initialRecipe.id && !item.isDone);
-            if (itemsToDelete.length > 0) {
-                await bulkDeleteItems(itemsToDelete.map(item => item.id), initialRecipe.name);
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            }
-            setIsBulkOperating(false);
-        } else {
-            // Set visual state IMMEDIATELY on click for instant feedback
-            setIsBulkAddingVisually(true);
-
-            // Trigger animations for all items that are about to be added
-            ingredients.forEach((ing, index) => {
-                if (!isIngredientInList(ing.name)) {
-                    const ref = checkboxRefs.current.get(ing.id);
-                    if (ref) {
-                        // Delay animations slightly so they don't all start exactly at the same time
-                        setTimeout(() => {
-                            ref.measure((x: number, y: number, width: number, height: number, pageX: number, pageY: number) => {
-                                triggerAnimation(pageX, pageY);
-                            });
-                        }, index * 50);
-                    }
+        try {
+            if (allAdded) {
+                setIsBulkAddingVisually(false);
+                const itemsToDelete = groceryItems.filter(item => item.recipeId === initialRecipe.id && !item.isDone);
+                if (itemsToDelete.length > 0) {
+                    await bulkDeleteItems(itemsToDelete.map(item => item.id), initialRecipe.name);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 }
-            });
+            } else {
+                setIsBulkAddingVisually(true);
 
-            // Trigger success haptic after animation completes
-            setTimeout(() => {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            }, 1800);
+                ingredients.forEach((ing, index) => {
+                    if (!isIngredientInList(ing.name)) {
+                        const ref = checkboxRefs.current.get(ing.id);
+                        if (ref) {
+                            setTimeout(() => {
+                                ref.measure((x: number, y: number, width: number, height: number, pageX: number, pageY: number) => {
+                                    triggerAnimation(pageX, pageY);
+                                });
+                            }, index * 50);
+                        }
+                    }
+                });
 
-            const itemsToAdd = ingredients
-                .filter(ing => !isIngredientInList(ing.name))
-                .map(ing => ({
-                    name: ing.name,
-                    quantity: ing.quantity,
-                    imageUrl: ing.imageUrl,
-                    imagePath: ing.imagePath,
-                    recipeId: initialRecipe.id
-                }));
+                setTimeout(() => {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                }, 1800);
 
-            if (itemsToAdd.length > 0) {
-                await bulkAddItems(itemsToAdd, initialRecipe.name);
+                const itemsToAdd = ingredients
+                    .filter(ing => !isIngredientInList(ing.name))
+                    .map(ing => ({
+                        name: ing.name,
+                        quantity: ing.quantity,
+                        imageUrl: ing.imageUrl,
+                        imagePath: ing.imagePath,
+                        recipeId: initialRecipe.id
+                    }));
+
+                if (itemsToAdd.length > 0) {
+                    await bulkAddItems(itemsToAdd, initialRecipe.name);
+                }
             }
-            
-            // Wait for Firestore to sync back before allowing another action
+        } catch (error) {
+            console.error("Bulk action failed:", error);
+            setIsBulkAddingVisually(false);
+        } finally {
             setTimeout(() => {
                 setIsBulkOperating(false);
             }, 1000);

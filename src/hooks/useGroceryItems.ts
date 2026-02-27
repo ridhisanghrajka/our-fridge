@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, Timestamp, orderBy, writeBatch } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { ref, deleteObject, uploadBytes, getDownloadURL } from 'firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { db, storage } from '../services/firebase';
+import { db, storage, functions } from '../services/firebase';
 import { GroceryItem } from '../types/GroceryItem';
 import { User } from '../types/User';
 import { upsertMemoryItem, deleteMemoryItem } from '../services/groceryMemory';
@@ -188,17 +189,32 @@ export const useGroceryItems = (pairId: string | null, user: User | null) => {
         itemsToAdd.forEach(item => {
             const newDocRef = doc(collection(db, 'groceryItems'));
             batch.set(newDocRef, {
-                ...item,
+                name: item.name || '',
+                quantity: item.quantity || '',
+                imageUrl: item.imageUrl || '',
+                imagePath: item.imagePath || '',
+                recipeId: item.recipeId || null,
                 pairId,
                 userId: user?.uid || '',
                 isDone: false,
                 createdBy: userName || 'User',
+                isBulkAdd: true,
                 createdAt: Timestamp.now(),
                 updatedAt: Timestamp.now(),
             });
         });
 
         await batch.commit();
+
+        // Send a single consolidated notification instead of one per item
+        const sendBulkNotification = httpsCallable(functions, 'sendBulkAddNotification');
+        sendBulkNotification({
+            pairId,
+            addedBy: userName || 'User',
+            addedByUid: user?.uid || '',
+            count: itemsToAdd.length,
+            recipeName: recipeName || null,
+        }).catch(err => console.error("Error sending bulk notification:", err));
 
         // Log activity once for the whole batch
         if (user && pairId) {

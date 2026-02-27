@@ -31,6 +31,9 @@ import {
 } from '../services/pairing';
 import { initializeBilling } from '../services/billing';
 import { registerForPushNotificationsAsync, updateUserMetadata } from '../services/notifications';
+import { registerGeofences } from '../services/locationService';
+import { PairUser } from '../types/PairUser';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, AppStateStatus } from 'react-native';
 
 interface PairingContextType {
@@ -146,11 +149,13 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
                     }
                     setUser(userData);
                     
-                    // Sync fridge state
+                    // Sync fridge state (also persist to AsyncStorage for background tasks like geofencing)
                     if (userData.fridgeId) {
                         setPairId(userData.fridgeId);
+                        AsyncStorage.setItem('@OurFridge:pairId', userData.fridgeId);
                     } else {
                         setPairId(null);
+                        AsyncStorage.removeItem('@OurFridge:pairId');
                     }
                     
                     // Sync user name state
@@ -224,6 +229,48 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
         });
 
         return () => subscription.remove();
+    }, [pairId, user?.uid]);
+
+    // Re-register geofences on app start so location reminders survive app kill / reboot
+    useEffect(() => {
+        if (!pairId || !user?.uid) return;
+
+        const bootstrapGeofences = async () => {
+            try {
+                console.log('[Geofence Bootstrap] Starting for pairId:', pairId, 'userId:', user.uid);
+                const userRef = doc(db, 'pairs', pairId, 'users', user.uid);
+                const userSnap = await getDoc(userRef);
+                if (!userSnap.exists()) {
+                    console.log('[Geofence Bootstrap] User doc not found, skipping');
+                    return;
+                }
+
+                const data = userSnap.data() as PairUser;
+                const dep = data.reminders?.departureLocation;
+                const store = data.reminders?.storeLocation;
+                console.log('[Geofence Bootstrap] Reminders from Firestore:', {
+                    departure: dep ? `${dep.latitude.toFixed(4)},${dep.longitude.toFixed(4)} enabled=${dep.isEnabled}` : 'none',
+                    store: store ? `${store.latitude.toFixed(4)},${store.longitude.toFixed(4)} enabled=${store.isEnabled}` : 'none',
+                });
+
+                const hasEnabledDep = dep && dep.isEnabled !== false;
+                const hasEnabledStore = store && store.isEnabled !== false;
+
+                if (hasEnabledDep || hasEnabledStore) {
+                    await registerGeofences(
+                        hasEnabledDep ? dep : undefined,
+                        hasEnabledStore ? store : undefined,
+                    );
+                    console.log('[Geofence Bootstrap] Registration complete');
+                } else {
+                    console.log('[Geofence Bootstrap] No enabled locations, skipping registration');
+                }
+            } catch (err) {
+                console.error('[Geofence Bootstrap] Error:', err);
+            }
+        };
+
+        bootstrapGeofences();
     }, [pairId, user?.uid]);
 
     // Listen to pair updates when pairId is set
