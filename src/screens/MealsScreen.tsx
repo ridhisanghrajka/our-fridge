@@ -37,10 +37,6 @@ export const MealsScreen: React.FC = () => {
     };
 
     const handleRecipePress = async (recipe: Recipe) => {
-        if (!isPremium) {
-            await presentPaywall(user?.uid);
-            return;
-        }
         setSelectedRecipe(recipe);
     };
 

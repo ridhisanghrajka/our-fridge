@@ -185,24 +185,12 @@ export const FridgeScreen: React.FC = () => {
                                 <GroceryListRow
                                     item={item}
                                     onToggle={async () => {
-                                        if (!isPremium) {
-                                            await presentPaywall(user?.uid);
-                                            return;
-                                        }
                                         toggleItem(item.id, item.isDone);
                                     }}
                                     onPress={async () => {
-                                        if (!isPremium) {
-                                            await presentPaywall(user?.uid);
-                                            return;
-                                        }
                                         setEditingItem(item);
                                     }}
                                     onDelete={async () => {
-                                        if (!isPremium) {
-                                            await presentPaywall(user?.uid);
-                                            return;
-                                        }
                                         deleteItem(item.id);
                                     }}
                                     scale={rScale}
@@ -289,10 +277,6 @@ export const FridgeScreen: React.FC = () => {
             <TouchableOpacity
                 style={[styles.noteContainer, { left: noteLeft, top: noteTop, width: noteWidth, height: noteHeight }]}
                 onPress={async () => {
-                    if (!isPremium) {
-                        await presentPaywall(user?.uid);
-                        return;
-                    }
                     setWriteNoteVisible(true);
                 }}
                 activeOpacity={0.7}
@@ -319,7 +303,7 @@ export const FridgeScreen: React.FC = () => {
                 <TouchableOpacity 
                     style={[styles.actionButton, { borderRadius: 16 * rScale, paddingVertical: 12 * rScale, paddingHorizontal: 20 * rScale }]} 
                     onPress={async () => {
-                    if (!isPremium) {
+                    if (!isPremium && items.length >= 30) {
                         await presentPaywall(user?.uid);
                         return;
                     }
@@ -338,10 +322,6 @@ export const FridgeScreen: React.FC = () => {
                 <TouchableOpacity 
                     style={[styles.actionButton, { borderRadius: 16 * rScale, paddingVertical: 12 * rScale, paddingHorizontal: 20 * rScale }]} 
                     onPress={async () => {
-                        if (!isPremium) {
-                            await presentPaywall();
-                            return;
-                        }
                         setWriteNoteVisible(true);
                     }}
                 >

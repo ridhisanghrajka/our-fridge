@@ -26,7 +26,7 @@ import {
     checkLocationPermissions,
     stopGeofencing
 } from '../services/locationService';
-import { restorePurchases, syncPremiumStatusToFirebase } from '../services/billing';
+import { restorePurchases, syncPremiumStatusToFirebase, presentPaywall } from '../services/billing';
 import { requestManualReview } from '../services/reviewService';
 import * as Location from 'expo-location';
 import { AppState, AppStateStatus } from 'react-native';
@@ -119,7 +119,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
         deleteAccount,
         reauthenticate,
         isDeletingAccount,
-        refreshPremiumStatus 
+        refreshPremiumStatus,
+        isPremium,
     } = usePairing();
     
     const { prefs, reminders, updatePrefs, saveAndRegisterLocation } = useNotificationPrefs(pairId, user?.uid || null);
@@ -477,7 +478,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
                         </View>
 
                         {/* Leave Location Reminder */}
-                        <TouchableOpacity style={styles.row} onPress={() => handleOpenLocationPicker('departure')}>
+                        <TouchableOpacity style={styles.row} onPress={() => {
+                            if (!isPremium) { presentPaywall(user?.uid); return; }
+                            handleOpenLocationPicker('departure');
+                        }}>
                             <View style={styles.rowLabelWithIcon}>
                                 <View style={styles.bellIconContainer}>
                                     <HomeIcon />
@@ -502,7 +506,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
                         </TouchableOpacity>
 
                         {/* Near Store Reminder */}
-                        <TouchableOpacity style={[styles.row, styles.noBorder]} onPress={() => handleOpenLocationPicker('store')}>
+                        <TouchableOpacity style={[styles.row, styles.noBorder]} onPress={() => {
+                            if (!isPremium) { presentPaywall(user?.uid); return; }
+                            handleOpenLocationPicker('store');
+                        }}>
                             <View style={styles.rowLabelWithIcon}>
                                 <View style={styles.bellIconContainer}>
                                     <MapPinIcon />

@@ -386,7 +386,10 @@ export const ProfileScreen: React.FC = () => {
                 <Text style={styles.sectionTitle}>Smart Reminders</Text>
                 <View style={styles.remindersCard}>
                     {/* Leave Location Reminder */}
-                    <TouchableOpacity style={styles.reminderRow} onPress={() => setLocationPickerType('departure')}>
+                    <TouchableOpacity style={styles.reminderRow} onPress={() => {
+                        if (!isPremium) { presentPaywall(user?.uid); return; }
+                        setLocationPickerType('departure');
+                    }}>
                         <View style={styles.reminderIconContainer}>
                             <HomeIcon size={20} />
                         </View>
@@ -410,7 +413,10 @@ export const ProfileScreen: React.FC = () => {
                     <View style={styles.reminderDivider} />
 
                     {/* Near Store Reminder */}
-                    <TouchableOpacity style={styles.reminderRow} onPress={() => setLocationPickerType('store')}>
+                    <TouchableOpacity style={styles.reminderRow} onPress={() => {
+                        if (!isPremium) { presentPaywall(user?.uid); return; }
+                        setLocationPickerType('store');
+                    }}>
                         <View style={styles.reminderIconContainer}>
                             <MapPinIcon size={20} />
                         </View>

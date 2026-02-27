@@ -31,7 +31,7 @@ import {
 } from '../services/pairing';
 import { initializeBilling } from '../services/billing';
 import { registerForPushNotificationsAsync, updateUserMetadata } from '../services/notifications';
-import { registerGeofences } from '../services/locationService';
+import { registerGeofences, stopGeofencing } from '../services/locationService';
 import { PairUser } from '../types/PairUser';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, AppStateStatus } from 'react-native';
@@ -101,6 +101,11 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
             // If SDK says premium, but Firestore doesn't know yet, sync it
             if (status && user && (!user.isPremium || (pair && !pair.isPremiumEnabled))) {
                 await syncPremiumStatusToFirebase(user.uid, true);
+            }
+
+            // Clean up geofences if subscription has lapsed
+            if (!status) {
+                stopGeofencing().catch(err => console.error('Error stopping geofencing on lapse:', err));
             }
         } catch (err) {
             console.error('Error refreshing premium status:', err);

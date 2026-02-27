@@ -24,6 +24,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Recipe, RecipeIngredient } from '../types/Recipe';
 import { usePairing } from '../hooks/usePairing';
+import { presentPaywall } from '../services/billing';
 import { useRecipes } from '../hooks/useRecipes';
 import { useGroceryItems } from '../hooks/useGroceryItems';
 
@@ -108,7 +109,7 @@ interface RecipeDetailScreenProps {
 }
 
 export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: initialRecipe, onClose }) => {
-    const { pairId, user } = usePairing();
+    const { pairId, user, isPremium } = usePairing();
     const { deleteRecipe, updateRecipe, recipes } = useRecipes(pairId, user);
     const { addItem, items: groceryItems, deleteItem: deleteGroceryItem, bulkAddItems, bulkDeleteItems } = useGroceryItems(pairId, user);
     
@@ -342,6 +343,11 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: 
                 await Promise.all(itemsToDelete.map(item => deleteGroceryItem(item.id)));
             }
         } else {
+            if (!isPremium && groceryItems.length >= 30) {
+                await presentPaywall(user?.uid);
+                return;
+            }
+
             event.target.measure((x: number, y: number, width: number, height: number, pageX: number, pageY: number) => {
                 triggerAnimation(pageX, pageY);
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -355,6 +361,11 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({ recipe: 
 
     const handleBulkAction = async () => {
         if (isEditing || isBulkOperating) return;
+
+        if (!isPremium) {
+            await presentPaywall(user?.uid);
+            return;
+        }
 
         setIsBulkOperating(true);
 

@@ -15,7 +15,6 @@ import Svg, { Path, G } from 'react-native-svg';
 import { NoteCanvas } from '../components/NoteCanvas';
 import { MagnetPicker } from '../components/MagnetPicker';
 import { CanvasElement } from '../types/SharedNote';
-import { presentPaywall } from '../services/billing';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
