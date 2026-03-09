@@ -18,10 +18,10 @@
   "dependencies": {
     "axios": "^1.13.4",
     "cheerio": "^1.2.0",
+    "expo": "~54.0.33",
     "firebase-admin": "^12.1.0",
     "firebase-functions": "^6.0.0",
     "openai": "^6.17.0",
-    "expo": "~54.0.33",
     "react": "19.1.0",
     "react-native": "0.81.5"
   },
