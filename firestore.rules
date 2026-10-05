@@ -1,0 +1,106 @@
+rules_version = '2';
+
+// Premium flags (users.isPremium, pairs.isPremiumEnabled) are written only by
+// Cloud Functions from RevenueCat events; clients can never set them.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function pairData(pairId) {
+      return get(/databases/$(database)/documents/pairs/$(pairId)).data;
+    }
+
+    function isMember(pairId) {
+      return signedIn() && request.auth.uid in pairData(pairId).memberUids;
+    }
+
+    function premiumUnchanged(field) {
+      return request.resource.data.get(field, false) == resource.data.get(field, false);
+    }
+
+    // ---- Users: private to their owner ----
+    match /users/{userId} {
+      allow read, delete: if signedIn() && request.auth.uid == userId;
+      allow create: if signedIn() && request.auth.uid == userId
+        && request.resource.data.get('isPremium', false) == false;
+      allow update: if signedIn() && request.auth.uid == userId
+        && premiumUnchanged('isPremium');
+    }
+
+    // ---- Fridges ----
+    match /pairs/{pairId} {
+      // Joining needs to look up a fridge by its code; listing all fridges is never allowed.
+      allow get: if signedIn();
+      allow list: if false;
+
+      allow create: if signedIn()
+        && request.resource.data.memberUids == [request.auth.uid]
+        && request.resource.data.get('isPremiumEnabled', false) == false;
+
+      allow update: if signedIn() && premiumUnchanged('isPremiumEnabled') && (
+        (request.auth.uid in resource.data.memberUids && (membersUnchanged() || leavingSelf()))
+        || joiningSelf()
+      );
+
+      // The last member leaving removes the fridge.
+      allow delete: if signedIn() && resource.data.memberUids == [request.auth.uid];
+
+      function membersUnchanged() {
+        return request.resource.data.memberUids == resource.data.memberUids;
+      }
+
+      function leavingSelf() {
+        return resource.data.memberUids.hasAll(request.resource.data.memberUids)
+          && request.resource.data.memberUids.size() == resource.data.memberUids.size() - 1
+          && !(request.auth.uid in request.resource.data.memberUids);
+      }
+
+      function joiningSelf() {
+        return request.resource.data.memberUids.hasAll(resource.data.memberUids)
+          && request.resource.data.memberUids.size() == resource.data.memberUids.size() + 1
+          && request.auth.uid in request.resource.data.memberUids
+          && request.resource.data.memberUids.size() <= 4
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['memberUids', 'memberNames', 'memberPhotos']);
+      }
+
+      // Per-member settings: push token, notification prefs, location reminders.
+      // Deleting your own doc is allowed after leaving the fridge.
+      match /users/{userId} {
+        allow read, create, update: if isMember(pairId) && request.auth.uid == userId;
+        allow delete: if signedIn() && request.auth.uid == userId;
+      }
+
+      match /item_memory/{memoryId} {
+        allow read, write: if isMember(pairId);
+      }
+    }
+
+    // ---- Fridge content, scoped by pairId ----
+    match /groceryItems/{itemId} {
+      allow read, delete: if isMember(resource.data.pairId);
+      allow create: if isMember(request.resource.data.pairId);
+      allow update: if isMember(resource.data.pairId)
+        && request.resource.data.pairId == resource.data.pairId;
+    }
+
+    match /recipes/{recipeId} {
+      allow read, delete: if isMember(resource.data.pairId);
+      allow create: if isMember(request.resource.data.pairId);
+      allow update: if isMember(resource.data.pairId)
+        && request.resource.data.pairId == resource.data.pairId;
+    }
+
+    match /sharedNotes/{pairId} {
+      allow read, write: if isMember(pairId);
+    }
+
+    match /activityLogs/{logId} {
+      allow read: if isMember(resource.data.pairId);
+      allow create: if isMember(request.resource.data.pairId);
+    }
+  }
+}

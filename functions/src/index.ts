@@ -3,8 +3,11 @@ import * as admin from "firebase-admin";
 import axios from "axios";
 import * as cheerio from "cheerio";
 import OpenAI from "openai";
+import { defineSecret } from "firebase-functions/params";
 
 admin.initializeApp();
+
+const revenueCatWebhookAuth = defineSecret("REVENUECAT_WEBHOOK_AUTH");
 
 const openai = new OpenAI({
   apiKey: functions.config().openai.key
@@ -278,8 +281,21 @@ export const sendBulkAddNotification = functions.https.onCall(async (data, conte
   await Promise.all(promises);
 });
 
+const NOTE_NOTIFY_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
+
+function parseNoteElements(content: unknown): { id: string; type: string }[] {
+  try {
+    const parsed = JSON.parse(typeof content === "string" ? content : "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Trigger: When a shared note is updated
+ * Always refreshes partners' widgets silently. When something new was added (not erased),
+ * also sends a visible "drew you something" / "left you a note" alert, at most every 10 minutes.
  */
 export const onNoteUpdated = functions.firestore
   .document("sharedNotes/{pairId}")
@@ -288,16 +304,37 @@ export const onNoteUpdated = functions.firestore
     const noteData = change.after.data();
     if (!noteData) return;
 
+    const beforeIds = new Set(parseNoteElements(change.before.data()?.content).map((el) => el.id));
+    const added = parseNoteElements(noteData.content).filter((el) => !beforeIds.has(el.id));
+    const senderName = noteData.updatedBy || "Your partner";
+    let alertBody: string | null = null;
+    if (added.some((el) => el.type === "path")) alertBody = `${senderName} drew you something ✏️`;
+    else if (added.some((el) => el.type === "text")) alertBody = `${senderName} left you a note 💌`;
+    else if (added.some((el) => el.type === "magnet")) alertBody = `${senderName} stuck a magnet on your fridge 🧲`;
+
     // Get all users in the pair
     const usersRef = db.collection("pairs").doc(pairId).collection("users");
     const usersSnapshot = await usersRef.get();
+    const now = admin.firestore.Timestamp.now();
 
     const promises = usersSnapshot.docs.map(async (doc) => {
       const userData = doc.data();
-      
+
       // Skip the person who updated it
       if (userData.userId === noteData.updatedByUid || doc.id === noteData.updatedByUid) return;
       if (!userData.pushToken) return;
+
+      const lastNoteNotifAt = userData.lastNotifAt?.note?.toMillis() || 0;
+      const wantsNoteAlerts = userData.prefs?.notifyNotes !== false;
+      if (alertBody && wantsNoteAlerts && now.toMillis() - lastNoteNotifAt > NOTE_NOTIFY_COOLDOWN_MS) {
+        await sendPushNotification(
+          userData.pushToken,
+          "Our Fridge",
+          alertBody,
+          { screen: "GroceryList", type: "WIDGET_UPDATE" }
+        );
+        await doc.ref.update({ "lastNotifAt.note": now });
+      }
 
       // Always send a silent update for notes to keep the widget fresh
       await sendPushNotification(
@@ -313,80 +350,128 @@ export const onNoteUpdated = functions.firestore
   });
 
 /**
- * Trigger: RevenueCat Webhook for subscription events
- * This updates the user and fridge premium status
+ * A fridge is premium while any of its members has an active subscription.
  */
-export const onSubscriptionUpdated = functions.https.onRequest(async (req, res) => {
-  // 1. Verify the request comes from RevenueCat (you should check the authorization header)
-  // const authToken = req.headers.authorization;
-  // if (authToken !== `Bearer ${process.env.REVENUECAT_WEBHOOK_AUTH_TOKEN}`) {
-  //   return res.status(401).send("Unauthorized");
-  // }
+async function syncFridgePremium(fridgeId: string) {
+  const fridgeRef = db.collection("pairs").doc(fridgeId);
+  const fridgeSnap = await fridgeRef.get();
+  if (!fridgeSnap.exists) return;
 
-  const event = req.body.event;
-  const uid = event.app_user_id;
-  const type = event.type;
+  const memberUids: string[] = fridgeSnap.data()?.memberUids || [];
+  const memberDocs = await Promise.all(memberUids.map((uid) => db.collection("users").doc(uid).get()));
+  const anyPremium = memberDocs.some((doc) => doc.exists && doc.data()?.isPremium === true);
 
-  console.log(`Received RevenueCat event ${type} for user ${uid}`);
+  if ((fridgeSnap.data()?.isPremiumEnabled === true) !== anyPremium) {
+    await fridgeRef.update({ isPremiumEnabled: anyPremium });
+    console.log(`Fridge ${fridgeId} premium -> ${anyPremium}`);
+  }
+}
 
-  try {
-    const userRef = db.collection("users").doc(uid);
-    const userSnap = await userRef.get();
+async function setUserPremium(uid: string, isPremium: boolean) {
+  const userRef = db.collection("users").doc(uid);
+  const userSnap = await userRef.get();
+  if (!userSnap.exists) {
+    console.log(`User ${uid} not found`);
+    return;
+  }
+  await userRef.update({ isPremium });
+  const fridgeId = userSnap.data()?.fridgeId;
+  if (fridgeId) await syncFridgePremium(fridgeId);
+}
 
-    if (!userSnap.exists) {
-      console.log(`User ${uid} not found`);
-      res.status(200).send("User not found");
+/**
+ * Trigger: When a fridge's members change
+ * Recomputes the fridge's premium status and tells existing members when someone joins.
+ */
+export const onMembersChanged = functions.firestore
+  .document("pairs/{pairId}")
+  .onUpdate(async (change, context) => {
+    const pairId = context.params.pairId;
+    const before: string[] = change.before.data()?.memberUids || [];
+    const after: string[] = change.after.data()?.memberUids || [];
+    const joined = after.filter((uid) => !before.includes(uid));
+    const left = before.filter((uid) => !after.includes(uid));
+    if (joined.length === 0 && left.length === 0) return;
+
+    await syncFridgePremium(pairId);
+    if (joined.length === 0) return;
+
+    const memberNames = change.after.data()?.memberNames || {};
+    const joinerName = memberNames[joined[0]] || "Your partner";
+
+    const usersSnapshot = await db.collection("pairs").doc(pairId).collection("users").get();
+    const promises = usersSnapshot.docs.map(async (doc) => {
+      if (joined.includes(doc.id)) return;
+      const userData = doc.data();
+      if (!userData.pushToken) return;
+
+      await sendPushNotification(
+        userData.pushToken,
+        `${joinerName} joined your fridge 🎉`,
+        "Your grocery list and notes now sync between you.",
+        { screen: "GroceryList", type: "WIDGET_UPDATE" }
+      );
+    });
+
+    await Promise.all(promises);
+  });
+
+// RevenueCat events that mean the subscriber has access / has lost it.
+// CANCELLATION only turns off auto-renew: access continues until EXPIRATION.
+const GRANT_EVENTS = new Set([
+  "INITIAL_PURCHASE",
+  "RENEWAL",
+  "UNCANCELLATION",
+  "PRODUCT_CHANGE",
+  "NON_RENEWING_PURCHASE",
+  "SUBSCRIPTION_EXTENDED",
+  "TEMPORARY_ENTITLEMENT_GRANT",
+]);
+const REVOKE_EVENTS = new Set(["EXPIRATION"]);
+
+/**
+ * Trigger: RevenueCat Webhook for subscription events
+ * The only writer of premium status. RevenueCat must send the shared secret
+ * as the Authorization header (set in RevenueCat > Integrations > Webhooks).
+ */
+export const onSubscriptionUpdated = functions
+  .runWith({ secrets: [revenueCatWebhookAuth] })
+  .https.onRequest(async (req, res) => {
+    if (req.method !== "POST") {
+      res.status(405).send("Method Not Allowed");
+      return;
+    }
+    if (req.headers.authorization !== `Bearer ${revenueCatWebhookAuth.value()}`) {
+      res.status(401).send("Unauthorized");
       return;
     }
 
-    const userData = userSnap.data();
-    const isPremiumEvent = type === "INITIAL_PURCHASE" || type === "RENEWAL" || type === "RESTORE";
-    const isLossOfEntitlement = type === "CANCELLATION" || type === "EXPIRATION" || type === "REFUND";
-
-    if (isPremiumEvent) {
-      // Set user as premium
-      await userRef.update({ isPremium: true });
-
-      // Find the fridge and update it
-      if (userData?.fridgeId) {
-        await db.collection("pairs").doc(userData.fridgeId).update({
-          isPremiumEnabled: true
-        });
-      }
-    } else if (isLossOfEntitlement) {
-      // Remove user premium status
-      await userRef.update({ isPremium: false });
-
-      // Check if any other member in the fridge is premium
-      if (userData?.fridgeId) {
-        const fridgeRef = db.collection("pairs").doc(userData.fridgeId);
-        const fridgeSnap = await fridgeRef.get();
-        
-        if (fridgeSnap.exists) {
-          const fridgeData = fridgeSnap.data();
-          const memberUids = fridgeData?.memberUids || [];
-          
-          // Fetch all members to see if any are still premium
-          const memberDocs = await Promise.all(
-            memberUids.map((memberUid: string) => db.collection("users").doc(memberUid).get())
-          );
-          
-          const anyPremium = memberDocs.some(doc => doc.exists && doc.data()?.isPremium === true);
-          
-          if (!anyPremium) {
-            await fridgeRef.update({ isPremiumEnabled: false });
-            console.log(`Relocked fridge ${userData.fridgeId}`);
-          }
-        }
-      }
+    const event = req.body?.event;
+    if (!event?.type) {
+      res.status(400).send("Missing event");
+      return;
     }
 
-    res.status(200).send("OK");
-  } catch (error) {
-    console.error("Error processing RevenueCat webhook:", error);
-    res.status(500).send("Internal Server Error");
-  }
-});
+    console.log(`Received RevenueCat event ${event.type} for user ${event.app_user_id}`);
+
+    try {
+      if (event.type === "TRANSFER") {
+        await Promise.all([
+          ...(event.transferred_from || []).map((uid: string) => setUserPremium(uid, false)),
+          ...(event.transferred_to || []).map((uid: string) => setUserPremium(uid, true)),
+        ]);
+      } else if (GRANT_EVENTS.has(event.type)) {
+        await setUserPremium(event.app_user_id, true);
+      } else if (REVOKE_EVENTS.has(event.type)) {
+        await setUserPremium(event.app_user_id, false);
+      }
+
+      res.status(200).send("OK");
+    } catch (error) {
+      console.error("Error processing RevenueCat webhook:", error);
+      res.status(500).send("Internal Server Error");
+    }
+  });
 
 /**
  * HTTP Function to scrape a recipe from a URL
