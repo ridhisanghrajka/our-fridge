@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Share, Clipboard, Platform, Switch, ActivityIndicator, Alert, Modal, Pressable, AppState, AppStateStatus } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Clipboard, Platform, Switch, ActivityIndicator, Alert, Modal, Pressable, AppState, AppStateStatus } from 'react-native';
 import { Image } from 'expo-image';
 import { usePairing } from '../hooks/usePairing';
 import { useNotificationPrefs } from '../hooks/useNotificationPrefs';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { presentPaywall } from '../services/billing';
+import { shareInvite } from '../services/invite';
 import * as ImagePicker from 'expo-image-picker';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../services/firebase';
@@ -215,15 +216,7 @@ export const ProfileScreen: React.FC = () => {
     };
 
     const handleShareCode = async () => {
-        if (pairId) {
-            try {
-                await Share.share({
-                    message: `Join my fridge on Our Fridge! Use code: ${pairId}`,
-                });
-            } catch (error) {
-                console.error('Error sharing code:', error);
-            }
-        }
+        if (pairId) await shareInvite(pairId, userName);
     };
 
     const handleSaveLocation = async (latitude: number, longitude: number, address: string, name: string, isEnabled: boolean = true) => {

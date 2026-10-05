@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Asset } from 'expo-asset';
 import * as SplashScreen from 'expo-splash-screen';
 import { useShareIntent } from "expo-share-intent";
+import * as Linking from 'expo-linking';
 import { useShareStore } from './src/services/shareStore';
+import { useInviteStore, parseInviteCode } from './src/services/invite';
 import { 
   useFonts, 
   Poppins_600SemiBold, 
@@ -83,6 +85,20 @@ export default function App() {
       }
     }
   }, [hasShareIntent, shareIntent, setPendingRecipeUrl, resetShareIntent]);
+
+  // Capture fridge codes from invite links (ourfridge://join/123456)
+  useEffect(() => {
+    const { hydrate, setPendingInviteCode } = useInviteStore.getState();
+    const handleUrl = (url: string | null) => {
+      const code = parseInviteCode(url);
+      if (code) setPendingInviteCode(code);
+    };
+
+    hydrate();
+    Linking.getInitialURL().then(handleUrl);
+    const subscription = Linking.addEventListener('url', ({ url }) => handleUrl(url));
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     if (fontsLoaded && assetsReady) {

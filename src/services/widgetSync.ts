@@ -101,6 +101,12 @@ export const syncDataToWidget = async (
     
     if (usesNativeWrite) {
       WidgetBridge.setWidgetData(json);
+      // setWidgetData skips reloading when the stored data is unchanged. A reload requested
+      // while the app is in the foreground can be dropped by iOS, so when leaving the app
+      // always reload; otherwise the widget keeps showing the previous snapshot.
+      if (trigger.includes('appBackground') && WidgetBridge?.reloadWidget) {
+        WidgetBridge.reloadWidget();
+      }
     } else if (Platform.OS === 'ios') {
       // Fallback for iOS if bridge is missing or older
       await SharedGroupPreferences.setItem('widgetData', json, APP_GROUP);

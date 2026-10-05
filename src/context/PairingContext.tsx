@@ -93,18 +93,14 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
     const pairUnsubRef = useRef<(() => void) | null>(null);
 
     const refreshPremiumStatus = async () => {
-        const { checkPremiumStatus, syncPremiumStatusToFirebase } = require('../services/billing');
+        const { checkPremiumStatus } = require('../services/billing');
         try {
+            // The fridge's shared premium flag is written server-side from RevenueCat events
             const status = await checkPremiumStatus();
             setIsPremiumSDK(status);
-            
-            // If SDK says premium, but Firestore doesn't know yet, sync it
-            if (status && user && (!user.isPremium || (pair && !pair.isPremiumEnabled))) {
-                await syncPremiumStatusToFirebase(user.uid, true);
-            }
 
-            // Clean up geofences if subscription has lapsed
-            if (!status) {
+            // Clean up geofences if neither this user nor anyone in the fridge is subscribed
+            if (!status && pair && !pair.isPremiumEnabled) {
                 stopGeofencing().catch(err => console.error('Error stopping geofencing on lapse:', err));
             }
         } catch (err) {
@@ -585,7 +581,7 @@ export const PairingProvider: React.FC<{ children: ReactNode }> = ({ children })
         setHasCompletedOnboardingState(true);
     };
 
-    const combinedIsPremium = isPremiumSDK || user?.isPremium || pair?.isPremiumEnabled || false;
+    const combinedIsPremium = isPremiumSDK || pair?.isPremiumEnabled || false;
 
     return (
         <PairingContext.Provider value={{

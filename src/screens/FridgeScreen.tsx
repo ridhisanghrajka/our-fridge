@@ -16,6 +16,7 @@ import { GroceryListRow } from '../components/GroceryListRow';
 import { EditItemModal } from './EditItemModal';
 import { GroceryItem } from '../types/GroceryItem';
 import { presentPaywall } from '../services/billing';
+import { InviteBanner } from '../components/InviteBanner';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -170,10 +171,11 @@ export const FridgeScreen: React.FC = () => {
                 ) : items.length === 0 ? (
                     <TouchableOpacity
                         style={styles.emptyStateContainer}
-                        onPress={() => navigation.navigate('Profile')}
+                        onPress={() => setAddItemVisible(true)}
                         activeOpacity={0.7}
                     >
                         <Text style={[styles.emptyStateTitle, { fontSize: 18 * rScale }]}>Fridge is empty! 🥛</Text>
+                        <Text style={[styles.emptyStateSubtitle, { fontSize: 13 * rScale }]}>Tap to add your first item</Text>
                     </TouchableOpacity>
                 ) : (
                     <>
@@ -340,6 +342,8 @@ export const FridgeScreen: React.FC = () => {
                     <Text style={[styles.buttonText, { fontSize: 16 * rScale }]}>Write Note</Text>
                 </TouchableOpacity>
             </View>
+
+            <InviteBanner />
 
             {/* Modals */}
             <AddItemModal

@@ -3,7 +3,7 @@ import * as TaskManager from 'expo-task-manager';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
-import { db } from './firebase';
+import { auth, db } from './firebase';
 
 export const GEOFENCING_TASK_NAME = 'OUR_FRIDGE_GEOFENCING_TASK';
 const PAIR_ID_KEY = '@OurFridge:pairId';
@@ -29,6 +29,8 @@ TaskManager.defineTask(GEOFENCING_TASK_NAME, async ({ data: { eventType, region 
 
   if (isStoreEnter || isDepartureExit) {
     try {
+      // Background launches restore the signed-in session asynchronously; database rules require it
+      await auth.authStateReady();
       const itemsRef = collection(db, 'groceryItems');
       const q = query(
         itemsRef,

@@ -4,7 +4,7 @@ import Constants from 'expo-constants';
 import { Platform, NativeModules } from 'react-native';
 import * as TaskManager from 'expo-task-manager';
 import { doc, setDoc, updateDoc, Timestamp, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from './firebase';
+import { auth, db } from './firebase';
 import { syncDataToWidget } from './widgetSync';
 
 const WIDGET_PUSH_TASK_NAME = 'OUR_FRIDGE_WIDGET_PUSH_TASK';
@@ -60,6 +60,8 @@ async function syncWidgetFromStoredSession(): Promise<void> {
   }
 
   try {
+    // Background launches restore the signed-in session asynchronously; database rules require it
+    await auth.authStateReady();
     console.log("📱 [Background] Fetching latest data from Firestore...");
     // 1. Fetch latest grocery items
     const itemsRef = collection(db, 'groceryItems');

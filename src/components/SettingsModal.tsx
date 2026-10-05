@@ -26,7 +26,7 @@ import {
     checkLocationPermissions,
     stopGeofencing
 } from '../services/locationService';
-import { restorePurchases, syncPremiumStatusToFirebase, presentPaywall } from '../services/billing';
+import { restorePurchases, presentPaywall } from '../services/billing';
 import { requestManualReview } from '../services/reviewService';
 import * as Location from 'expo-location';
 import { AppState, AppStateStatus } from 'react-native';
@@ -288,13 +288,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
             const isPro = typeof customerInfo.entitlements.active['Our Fridge -  Pro'] !== "undefined";
             
             if (isPro) {
-                if (user?.uid) {
-                    await syncPremiumStatusToFirebase(user.uid, true);
-                    if (refreshPremiumStatus) {
-                        await refreshPremiumStatus();
-                    }
-                    Alert.alert("Success", "Your Pro subscription has been restored!");
+                if (refreshPremiumStatus) {
+                    await refreshPremiumStatus();
                 }
+                Alert.alert("Success", "Your Pro subscription has been restored!");
             } else {
                 Alert.alert("No Purchase Found", "We couldn't find an active subscription for this account.");
             }

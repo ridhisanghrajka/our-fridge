@@ -25,6 +25,11 @@ import LottieView from 'lottie-react-native';
 // import * as Clipboard from 'expo-clipboard';
 import { usePairing } from '../hooks/usePairing';
 import { registerForPushNotificationsAsync } from '../services/notifications';
+import { shareInvite, useInviteStore } from '../services/invite';
+import { presentPaywall, checkPremiumStatus } from '../services/billing';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../services/firebase';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -35,6 +40,8 @@ const Scene2Animation = require('../assets/animations/scene2.json');
 const NotificationAnimation = require('../assets/animations/Notification-remix.json');
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+
+const ONBOARDING_PAYWALL_SHOWN_KEY = '@onboarding_paywall_shown';
 
 const EyeIcon = ({ size = 20, color = "#A89B8F", open = true }) => (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -184,6 +191,11 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onFinish }) 
     const [fridgeName, setFridgeName] = useState('');
     const [pairingCode, setPairingCode] = useState('');
     const [generatedCode, setGeneratedCode] = useState<string | null>(null);
+    const [joinIntent, setJoinIntent] = useState(false);
+    const [inviteShared, setInviteShared] = useState(false);
+    const hasAutoRoutedToJoin = useRef(false);
+    const pendingInviteCode = useInviteStore((state) => state.pendingInviteCode);
+    const setPendingInviteCode = useInviteStore((state) => state.setPendingInviteCode);
     const [currentCarouselIndex, setCurrentCarouselIndex] = useState(0);
     const flatListRef = useRef<FlatList>(null);
 
@@ -204,6 +216,25 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onFinish }) 
             }).start();
         }
     }, [step]);
+
+    // A signed-in user without a fridge belongs on the setup step. Sign-in and
+    // Apple sign-in don't navigate on their own when the account has no fridge yet.
+    useEffect(() => {
+        if (isProcessing || isAuthTransitioning) return;
+        if (user && !user.fridgeId && step >= 2 && step <= 4) {
+            nextStep(5);
+        }
+    }, [user, step, isProcessing, isAuthTransitioning]);
+
+    // Invited users skip the create/join choice and land on Join with the code filled in.
+    useEffect(() => {
+        if (step !== 5 || !user || hasAutoRoutedToJoin.current) return;
+        if (joinIntent || pendingInviteCode) {
+            hasAutoRoutedToJoin.current = true;
+            if (pendingInviteCode) setPairingCode(pendingInviteCode);
+            nextStep(7);
+        }
+    }, [step, user, joinIntent, pendingInviteCode]);
 
     const nextStep = (targetStep?: number) => {
         Animated.timing(fadeAnim, {
@@ -339,6 +370,33 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onFinish }) 
         }
     };
 
+    /**
+     * Offers Pro once, after the fridge is set up (and after the invite step for creators).
+     * Skipped if the user or the fridge already has Pro. Never blocks finishing onboarding.
+     */
+    const showOnboardingPaywall = async (fridgeCode?: string | null) => {
+        try {
+            if (await AsyncStorage.getItem(ONBOARDING_PAYWALL_SHOWN_KEY)) return;
+            if (await checkPremiumStatus()) return;
+            if (fridgeCode) {
+                const fridgeSnap = await getDoc(doc(db, 'pairs', fridgeCode));
+                if (fridgeSnap.data()?.isPremiumEnabled) return;
+            }
+            await AsyncStorage.setItem(ONBOARDING_PAYWALL_SHOWN_KEY, Date.now().toString());
+            await presentPaywall(user?.uid);
+        } catch (err) {
+            console.error('Error showing onboarding paywall:', err);
+        }
+    };
+
+    const finishOnboarding = async (fridgeCode?: string | null) => {
+        setIsProcessing(true);
+        completeOnboarding();
+        await showOnboardingPaywall(fridgeCode);
+        setIsProcessing(false);
+        onFinish();
+    };
+
     const handleCreate = async () => {
         let displayName = userName?.trim();
         
@@ -399,8 +457,8 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onFinish }) 
         setIsProcessing(true);
         try {
             await joinExistingPair(pairingCode.trim(), finalName);
-            completeOnboarding(); 
-            onFinish(); // Signal completion to Navigator
+            setPendingInviteCode(null);
+            await finishOnboarding(pairingCode.trim()); // Signal completion to Navigator
         } catch (err: any) {
             Alert.alert('Error', err.message || 'Failed to join fridge');
         } finally {
@@ -410,15 +468,9 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onFinish }) 
 
     const handleShare = async () => {
         const codeToShare = generatedCode || pairId;
-        if (codeToShare) {
-            try {
-                await Share.share({
-                    message: `Join my fridge on Our Fridge! Use code: ${codeToShare}`,
-                });
-            } catch (error) {
-                console.error('Error sharing code:', error);
-            }
-        }
+        if (!codeToShare) return;
+        const shared = await shareInvite(codeToShare, userName || user?.name);
+        if (shared) setInviteShared(true);
     };
 
     const handleCopyCode = async () => {
@@ -475,21 +527,30 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onFinish }) 
                 animated: true,
             });
         } else {
-            // Check if we should show the notification pre-prompt screen
-            let shouldShowNotifications = false;
-            
-            if (Device.isDevice) {
-                const { status } = await Notifications.getPermissionsAsync();
-                // status will be 'undetermined' if the user hasn't responded to the system prompt yet
-                shouldShowNotifications = status === 'undetermined';
-            }
-
-            if (shouldShowNotifications) {
-                nextStep(9);
-            } else {
-                nextStep(hasCompletedOnboarding ? 4 : 2);
-            }
+            await finishCarousel();
         }
+    };
+
+    const finishCarousel = async () => {
+        // Check if we should show the notification pre-prompt screen
+        let shouldShowNotifications = false;
+
+        if (Device.isDevice) {
+            const { status } = await Notifications.getPermissionsAsync();
+            // status will be 'undetermined' if the user hasn't responded to the system prompt yet
+            shouldShowNotifications = status === 'undetermined';
+        }
+
+        if (shouldShowNotifications) {
+            nextStep(9);
+        } else {
+            nextStep(hasCompletedOnboarding ? 4 : 2);
+        }
+    };
+
+    const handleHaveInvite = async () => {
+        setJoinIntent(true);
+        await finishCarousel();
     };
 
     const renderCarouselItem = ({ item, index }: { item: any, index: number }) => {
@@ -576,6 +637,12 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onFinish }) 
                             >
                                 <Text style={styles.buttonText}>
                                     {currentCarouselIndex === carouselData.length - 1 ? 'Get Started' : 'Next'}
+                                </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={styles.textLinkButton} onPress={handleHaveInvite}>
+                                <Text style={[styles.textLink, styles.smallLink]}>
+                                    {pendingInviteCode ? `Join fridge ${pendingInviteCode}` : 'Have an invite code?'}
                                 </Text>
                             </TouchableOpacity>
                         </View>
@@ -883,6 +950,9 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onFinish }) 
                         >
                             <View style={styles.stepContainer}>
                                 <Text style={styles.title}>Join Partner</Text>
+                                <Text style={styles.subtitle}>
+                                    Enter the 6-digit code from your partner's invite.
+                                </Text>
                                 <View style={styles.card}>
                                     <Text style={styles.label}>6-Digit Code</Text>
                                     <TextInput
@@ -922,34 +992,33 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onFinish }) 
                             </View>
                             <Text style={styles.title}>Fridge Created!</Text>
                             <Text style={styles.subtitle}>
-                                Share this code with your partner to start stocking your fridge together.
+                                {inviteShared
+                                    ? "Invite sent! You'll get a notification when your partner joins."
+                                    : 'Our Fridge works best together. Invite your partner so you both see the list and notes in real time.'}
                             </Text>
 
                             <View style={styles.codeBox}>
                                 <Text style={styles.codeText}>{generatedCode || pairId}</Text>
                             </View>
 
-                            <TouchableOpacity style={styles.textLinkButton} onPress={handleShare}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#6B4B3E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 8, opacity: 0.6 }}>
-                                        <Path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-                                        <Path d="M16 6l-4-4-4 4" />
-                                        <Path d="M12 2v13" />
-                                    </Svg>
-                                    <Text style={styles.textLink}>Share Code</Text>
-                                </View>
-                            </TouchableOpacity>
                         </View>
 
                         <View style={{ paddingHorizontal: 24 }}>
-                            <TouchableOpacity 
-                                style={[styles.primaryButton, styles.buttonGlow]} 
-                                onPress={() => {
-                                    completeOnboarding();
-                                    onFinish();
-                                }}
+                            <TouchableOpacity
+                                style={[styles.primaryButton, styles.buttonGlow]}
+                                onPress={inviteShared ? () => finishOnboarding(generatedCode || pairId) : handleShare}
+                                disabled={isProcessing}
                             >
-                                <Text style={styles.buttonText}>Next</Text>
+                                <Text style={styles.buttonText}>{inviteShared ? 'Continue' : 'Invite Your Partner'}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.textLinkButton}
+                                onPress={inviteShared ? handleShare : () => finishOnboarding(generatedCode || pairId)}
+                                disabled={isProcessing}
+                            >
+                                <Text style={[styles.textLink, styles.smallLink]}>
+                                    {inviteShared ? 'Share again' : "I'll invite them later"}
+                                </Text>
                             </TouchableOpacity>
                         </View>
                     </View>

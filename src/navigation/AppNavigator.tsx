@@ -12,6 +12,8 @@ import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { AddRecipeScreen } from '../screens/AddRecipeScreen';
 import { ImportRecipeScreen } from '../screens/ImportRecipeScreen';
 import { WidgetSynchronizer } from '../components/WidgetSynchronizer';
+import { PendingInviteHandler } from '../components/PendingInviteHandler';
+import { parseInviteCode } from '../services/invite';
 import { usePairing } from '../hooks/usePairing';
 import { useShareStore } from '../services/shareStore';
 import { View, ActivityIndicator, StyleSheet, Alert, Animated, Image } from 'react-native';
@@ -25,6 +27,8 @@ const Stack = createStackNavigator();
 
 const linking = {
     prefixes: [Linking.createURL('/'), 'ourfridge://'],
+    // Invite links are handled by the invite store, not by screen navigation
+    filter: (url: string) => !parseInviteCode(url),
     config: {
         screens: {
             MainTabs: {
@@ -276,6 +280,7 @@ export const AppNavigator: React.FC = () => {
     return (
         <NavigationContainer linking={linking} ref={navigationRef}>
             {pairId && <WidgetSynchronizer />}
+            {pairId && <PendingInviteHandler />}
             <Stack.Navigator screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="MainTabs" component={MainTabs} />
                 <Stack.Screen 
