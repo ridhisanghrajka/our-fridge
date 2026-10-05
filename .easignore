@@ -1,0 +1,44 @@
+node_modules/
+.expo/
+.expo-shared/
+npm-debug.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+dist/
+
+# macOS
+.DS_Store
+
+# Temporary files
+*.log
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Firebase Config
+firebase.config.ts
+
+# Google Config
+src/config/googleConfig.ts
+
+# Not needed for EAS builds
+*.ipa
+build-log.txt
+scripts/
+functions/
+.claude/
